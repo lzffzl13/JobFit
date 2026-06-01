@@ -1,0 +1,13 @@
+AI 应用开发实习生
+
+岗位职责：
+1. 参与大模型应用后端服务开发，负责接口设计、业务逻辑实现和服务调试。
+2. 参与 RAG、Agent、Prompt Engineering 等 AI 应用能力建设。
+3. 对接 DeepSeek、OpenAI 或通义千问等大模型 API，完成结构化输出和效果优化。
+4. 配合完成接口测试、Docker 部署和项目文档编写。
+
+岗位要求：
+1. 熟悉 Python，了解 FastAPI、Flask 或 Django 任一后端框架。
+2. 熟悉 MySQL、Redis 等常见后端组件。
+3. 了解 LLM、RAG、向量检索、Embedding、Prompt Engineering。
+4. 有完整项目经验和良好的工程化意识。

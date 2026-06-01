@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JobFit Agent</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f8f7;
+        --panel: #ffffff;
+        --text: #162021;
+        --muted: #647172;
+        --line: #dce5e3;
+        --accent: #0f766e;
+        --accent-dark: #0b5f58;
+        --accent-soft: #e8f5f3;
+        --warn: #a15c07;
+        --warn-soft: #fff5df;
+        --danger: #b42318;
+        --danger-soft: #fff0ee;
+        --soft: #f3f7f6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      header {
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(10px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .wrap {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+      }
+
+      header .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 66px;
+        gap: 16px;
+      }
+
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 23px;
+        line-height: 1.2;
+      }
+
+      h2 {
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      h3 {
+        font-size: 15px;
+        line-height: 1.35;
+      }
+
+      p,
+      li {
+        line-height: 1.55;
+      }
+
+      main {
+        padding: 22px 0 42px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 14px 34px rgba(22, 32, 33, 0.06);
+      }
+
+      .input-panel {
+        padding: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .small {
+        font-size: 13px;
+      }
+
+      .input-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 11px 12px;
+        background: #fcfefd;
+        color: var(--text);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 280px;
+        resize: vertical;
+        line-height: 1.55;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+      }
+
+      .form-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: end;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+
+      .upload-box {
+        display: grid;
+        gap: 8px;
+      }
+
+      button {
+        min-width: 168px;
+        border: 0;
+        border-radius: 6px;
+        padding: 12px 18px;
+        color: #ffffff;
+        background: var(--accent);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: var(--accent-dark);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.68;
+      }
+
+      .report {
+        margin-top: 20px;
+      }
+
+      .empty {
+        padding: 20px;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .report-shell {
+        display: grid;
+        gap: 16px;
+      }
+
+      .summary-band {
+        display: grid;
+        grid-template-columns: minmax(180px, 0.65fr) minmax(0, 2.35fr);
+        gap: 16px;
+        padding: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .score-box {
+        display: grid;
+        align-content: center;
+        min-height: 150px;
+        padding: 16px;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        border: 1px solid #c9e8e3;
+      }
+
+      .score-box span {
+        color: var(--muted);
+        font-weight: 750;
+      }
+
+      .score {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .score strong {
+        font-size: 52px;
+        line-height: 1;
+      }
+
+      .summary-copy {
+        display: grid;
+        gap: 14px;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 88px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .metric span {
+        display: block;
+        min-height: 34px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 22px;
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .section-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .section-card.wide {
+        grid-column: 1 / -1;
+      }
+
+      .section-card h3 {
+        margin-bottom: 10px;
+      }
+
+      .pill-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        max-width: 100%;
+        padding: 6px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fcfefd;
+        font-size: 13px;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
+      .pill.warn {
+        border-color: #f0d098;
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+
+      .pill.danger {
+        border-color: #f6c5c0;
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .detail-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .detail-item {
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #fcfefd;
+        word-break: break-word;
+      }
+
+      .detail-title {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 700;
+      }
+
+      .detail-meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        background: #fcfefd;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      th {
+        color: var(--muted);
+        background: var(--soft);
+        font-weight: 750;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      details {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      summary {
+        cursor: pointer;
+        padding: 14px 16px;
+        font-weight: 750;
+      }
+
+      .evidence {
+        max-height: 320px;
+        overflow: auto;
+        display: grid;
+        gap: 8px;
+        padding: 0 16px 16px;
+      }
+
+      .quote {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 10px;
+        background: #fcfefd;
+      }
+
+      .tag {
+        display: inline-block;
+        margin-bottom: 6px;
+        color: var(--warn);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 980px) {
+        .summary-band,
+        .section-grid,
+        .input-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .form-actions {
+          grid-template-columns: 1fr;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .wrap {
+          width: min(100vw - 20px, 1180px);
+        }
+
+        header .wrap,
+        .panel-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        main {
+          padding-top: 14px;
+        }
+
+        .input-panel,
+        .summary-band,
+        .section-card {
+          padding: 14px;
+        }
+
+        .metrics {
+          grid-template-columns: 1fr;
+        }
+
+        .score strong {
+          font-size: 44px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="brand">
+          <span class="eyebrow">Resume x JD</span>
+          <h1>JobFit Agent</h1>
+        </div>
+        <span class="muted small">Deterministic scoring with evidence</span>
+      </div>
+    </header>
+    <main class="wrap">
+      <section class="panel input-panel">
+        <div class="panel-head">
+          <div>
+            <h2>匹配分析</h2>
+            <p class="muted small">粘贴简历和 JD 后生成完整分析报告。</p>
+          </div>
+        </div>
+        <form id="form">
+          <div class="input-grid">
+            <div class="field">
+              <label for="resume-text">简历文本</label>
+              <textarea
+                id="resume-text"
+                name="resume_text"
+                placeholder="粘贴你的简历正文。项目经历、技能栈、实习经历都可以直接放进来。"
+              ></textarea>
+            </div>
+            <div class="field">
+              <label for="jd">岗位 JD</label>
+              <textarea
+                id="jd"
+                name="jd"
+                required
+                placeholder="粘贴后端、AI 应用、LLM 应用或其他实习岗位 JD。"
+              ></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <div class="upload-box">
+              <label for="resume">简历文件</label>
+              <input id="resume" name="resume" type="file" accept=".pdf,.docx,.txt,.md" />
+              <span class="muted small">文本和文件同时提供时，优先使用文本。</span>
+            </div>
+            <button id="submit" type="submit">开始分析</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="report" aria-live="polite">
+        <div id="result" class="empty muted">分析结果会显示在这里。</div>
+      </section>
+    </main>
+    <script>
+      const form = document.querySelector("#form");
+      const button = document.querySelector("#submit");
+      const result = document.querySelector("#result");
+      const resumeText = document.querySelector("#resume-text");
+      const resumeFile = document.querySelector("#resume");
+      const jdText = document.querySelector("#jd");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!resumeText.value.trim() && !resumeFile.files[0]) {
+          result.className = "empty";
+          result.innerHTML = `<span class="tag">ERROR</span><p>请粘贴简历文本，或者上传一个简历文件。</p>`;
+          return;
+        }
+
+        const data = new FormData();
+        if (resumeText.value.trim()) {
+          data.append("resume_text", resumeText.value);
+        }
+        if (resumeFile.files[0]) {
+          data.append("resume", resumeFile.files[0]);
+        }
+        data.append("jd_text", jdText.value);
+
+        button.disabled = true;
+        button.textContent = "分析中...";
+        result.className = "empty muted";
+        result.textContent = "正在读取简历、检索证据并生成分析...";
+
+        try {
+          const response = await fetch("/jobfit/analyze", { method: "POST", body: data });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.detail || "请求失败");
+          }
+          render(payload);
+          result.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (error) {
+          result.className = "empty";
+          result.innerHTML = `<span class="tag">ERROR</span><p>${escapeHtml(error.message)}</p>`;
+        } finally {
+          button.disabled = false;
+          button.textContent = "开始分析";
+        }
+      });
+
+      function render(data) {
+        const breakdown = data.score_breakdown || {};
+        result.className = "report-shell";
+        result.innerHTML = `
+          <div class="summary-band">
+            <div class="score-box">
+              <span>总分</span>
+              <div class="score"><strong>${data.match_score}</strong><span class="muted">/ 100</span></div>
+              <p class="small muted">原始分 ${numberPart(breakdown.raw_score)} · 上限 ${breakdown.final_cap || 100}</p>
+            </div>
+            <div class="summary-copy">
+              <div>
+                <h2>分析结果</h2>
+                <p class="muted">${escapeHtml(data.summary)}</p>
+              </div>
+              <div class="metrics">
+                ${metric("岗位核心匹配", scorePart(breakdown.core_points, breakdown.core_points_total))}
+                ${metric("JD 加分项", scorePart(breakdown.bonus_points, breakdown.bonus_points_total))}
+                ${metric("简历竞争力", scorePart(breakdown.extra_points, breakdown.extra_points_total))}
+                ${metric("核心命中", `${breakdown.core_matched || 0}/${breakdown.core_total || 0}`)}
+                ${metric("模型状态", escapeHtml(data.model_used))}
+              </div>
+              ${data.fallback_used ? '<span class="pill warn">当前未调用 DeepSeek，返回本地规则结果</span>' : ""}
+            </div>
+          </div>
+
+          <div class="section-grid">
+            ${pillSection("上限命中", breakdown.cap_reasons || [], "danger")}
+            ${pillSection("待补强", data.risk_items || [], "warn")}
+            ${coreEvidenceSection(breakdown.core_detail || {})}
+            ${requirementSection(data.jd_requirements || [])}
+            ${listSection("已满足", (data.matched_strengths || []).map((x) => ({ title: x.requirement, body: x.resume_evidence, meta: `证据分 ${x.score}` })))}
+            ${listSection("简历额外竞争力", (data.extra_strengths || []).map(splitDetail))}
+            ${listSection("评分备注", (breakdown.evidence_notes || []).map((x) => ({ title: x, body: "", meta: "" })))}
+            ${listSection("待补强建议", (data.gaps || []).map((x) => ({ title: x.requirement, body: x.suggestion, meta: "" })))}
+            ${listSection("简历优化建议", (data.resume_rewrites || []).map((x) => ({ title: x.after, body: x.reason, meta: x.before })), true)}
+            ${listSection("面试问题", (data.interview_questions || []).map((x) => ({ title: x.question, body: x.focus, meta: x.difficulty })))}
+          </div>
+
+          <details>
+            <summary>引用证据</summary>
+            <div class="evidence">
+              ${(data.evidence || [])
+                .slice(0, 8)
+                .map((x) => `<div class="quote"><span class="tag">${escapeHtml(x.source)} #${x.chunk_id} · score ${x.score}</span><pre>${escapeHtml(x.text)}</pre></div>`)
+                .join("") || '<p class="muted small">暂无引用证据</p>'}
+            </div>
+          </details>
+        `;
+      }
+
+      function metric(label, value) {
+        return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
+      }
+
+      function pillSection(title, items, tone = "") {
+        const content = items.length
+          ? items.map((item) => `<span class="pill ${tone}">${escapeHtml(item)}</span>`).join("")
+          : '<span class="muted small">暂无</span>';
+        return `<section class="section-card"><h3>${title}</h3><div class="pill-list">${content}</div></section>`;
+      }
+
+      function coreEvidenceSection(coreDetail) {
+        const rows = Object.entries(coreDetail).map(([name, detail]) => {
+          const level = String(detail).split(":")[0] || "未识别";
+          const evidence = String(detail).slice(String(detail).indexOf(":") + 1);
+          return `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(level)}</td><td>${escapeHtml(evidence || detail)}</td></tr>`;
+        });
+        return `
+          <section class="section-card wide">
+            <h3>核心证据强度</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>核心要求</th><th>证据等级</th><th>简历证据</th></tr></thead>
+                <tbody>${rows.join("") || '<tr><td colspan="3" class="muted">暂无核心证据</td></tr>'}</tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      }
+
+      function requirementSection(items) {
+        const rows = items.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${escapeHtml(item.priority || "core")}</td>
+            <td>${escapeHtml(item.type || item.category)}</td>
+            <td>${escapeHtml((item.options || []).join(" / ") || "-")}</td>
+            <td>${escapeHtml(item.evidence || "-")}</td>
+          </tr>
+        `);
+        return `
+          <section class="section-card wide">
+            <h3>JD 结构化要求</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>要求</th><th>优先级</th><th>类型</th><th>选项</th><th>JD 证据</th></tr></thead>
+                <tbody>${rows.join("") || '<tr><td colspan="5" class="muted">暂无结构化要求</td></tr>'}</tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      }
+
+      function listSection(title, items, wide = false) {
+        const content = items.length
+          ? items
+              .map((item) => `
+                <li class="detail-item">
+                  <span class="detail-title">${escapeHtml(item.title)}</span>
+                  ${item.body ? `<span>${escapeHtml(item.body)}</span>` : ""}
+                  ${item.meta ? `<div class="detail-meta">${escapeHtml(item.meta)}</div>` : ""}
+                </li>
+              `)
+              .join("")
+          : '<li class="detail-item muted">暂无明显结果</li>';
+        return `<section class="section-card ${wide ? "wide" : ""}"><h3>${title}</h3><ul class="detail-list">${content}</ul></section>`;
+      }
+
+      function splitDetail(value) {
+        const text = String(value);
+        const index = text.indexOf(":");
+        if (index === -1) {
+          return { title: text, body: "", meta: "" };
+        }
+        return { title: text.slice(0, index), body: text.slice(index + 1).trim(), meta: "" };
+      }
+
+      function scorePart(value, total) {
+        return `${Number.isFinite(Number(value)) ? value : 0}/${Number.isFinite(Number(total)) ? total : 0}`;
+      }
+
+      function numberPart(value) {
+        return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "0.00";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+    </script>
+  </body>
+</html>

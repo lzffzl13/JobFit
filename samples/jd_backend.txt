@@ -1,0 +1,12 @@
+Python 后端开发实习生
+
+岗位职责：
+1. 参与后端 API 设计和业务功能开发。
+2. 维护数据库模型、缓存逻辑和接口文档。
+3. 参与单元测试、接口测试和 Docker 部署。
+
+岗位要求：
+1. 熟悉 Python 和 FastAPI。
+2. 熟悉 MySQL、Redis、SQLAlchemy。
+3. 了解 JWT 认证、RESTful API、日志和异常处理。
+4. 有 AI 应用或大模型 API 接入经验者优先。

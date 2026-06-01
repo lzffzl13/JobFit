@@ -1,0 +1,17 @@
+张三
+AI 应用开发 / Python 后端实习候选人
+
+技能
+- Python, FastAPI, SQLAlchemy, MySQL, Redis, Docker
+- 熟悉 RESTful API 设计、JWT 认证、缓存设计和接口测试
+- 了解 RAG、Prompt Engineering、LLM API 调用和向量检索基础
+
+项目经历
+1. FastAPI 博客后端系统
+   基于 FastAPI 和 SQLAlchemy 实现用户注册登录、JWT 认证、文章 CRUD、Redis 缓存和登录限流。
+   使用 pytest 和 fakeredis 编写接口测试，提升接口稳定性。
+
+2. JobFit Agent 求职分析系统
+   基于 FastAPI 构建简历与岗位 JD 匹配分析服务。
+   支持 PDF/DOCX 简历解析、文本切片、证据召回、DeepSeek 结构化分析和引用溯源。
+   输出岗位匹配度、能力缺口、简历优化建议和面试问题。
