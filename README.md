@@ -6,6 +6,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![RAG](https://img.shields.io/badge/RAG-BGE_+_ChromaDB-FF6F00?logo=openai&logoColor=white)
 ![DeepSeek](https://img.shields.io/badge/DeepSeek-Chat-4D6BFE?logo=openai&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -43,7 +44,8 @@ JobFit Agent 是一个面向**实习求职场景**的 RAG（Retrieval-Augmented 
        │                    │
        ▼                    ▼
 ┌──────────────────────────────────┐
-│     RAG 检索（余弦相似度）        │
+│   RAG 检索（BGE Embedding +      │
+│   ChromaDB 向量检索）            │
 │   简历分块 ←→ JD 分块 交叉检索   │
 └──────────────┬───────────────────┘
                │
@@ -69,7 +71,7 @@ JobFit Agent 是一个面向**实习求职场景**的 RAG（Retrieval-Augmented 
 |------|------|
 | 多格式简历解析 | 支持 PDF、DOCX、TXT、Markdown，自动编码检测 |
 | JD 结构化分析 | 提取核心技能、加分项、推断岗位类型（后端/前端/测试/产品等） |
-| 轻量 RAG 检索 | 基于 token 的余弦相似度，召回简历和 JD 中的相关证据片段 |
+| RAG 语义检索 | BGE Embedding + ChromaDB 向量检索，语义匹配替代词频匹配 |
 | DeepSeek 集成 | 结构化 JSON 输出，生成解释、建议和面试问题 |
 | 确定性评分 | `总分 = min(核心70 + 加分15 + 竞争力15, 方向上限)` |
 | 方向性硬上限 | 防止非技术简历虚高分、关键词堆砌拿高分 |
@@ -169,7 +171,7 @@ JobFit/
 │       ├── jobfit.py            # 编排器：RAG + LLM + 本地评分
 │       ├── llm.py               # DeepSeek API 客户端、输出归一化
 │       ├── resume_evidence.py   # 简历证据分析、技能强度评分
-│       ├── retriever.py         # 文本分块 + 余弦相似度检索
+│       ├── retriever.py         # 文本分块 + BGE Embedding + ChromaDB 向量检索
 │       ├── scoring.py           # 评分门面，构建 EvaluationResult
 │       └── scoring_policy.py    # 确定性评分引擎、方向上限
 ├── static/
@@ -257,16 +259,20 @@ LLM 的输出存在不确定性——同样的输入可能得到不同的分数�
 - 不受模型版本/参数变化影响
 - 可通过测试用例验证
 
-### 为什么用词频检索而不是向量检索？
+### 为什么用 BGE Embedding + ChromaDB？
 
-当前版本（MVP）使用基于 token 的余弦相似度进行证据检索，实现简单、无需额外模型依赖。后续计划升级为 Embedding + 向量数据库的语义检索方案。
+相比词频匹配，向量检索能捕捉语义相似性——"后端开发"能匹配"服务端开发"，即使字面完全不同。BGE-small-zh-v1.5 是中文场景下效果最好的轻量 Embedding 模型之一，ChromaDB 提供零配置的向量存储和检索。
 
 ## 🗺️ 后续规划
 
-- [ ] 升级 RAG：接入 Embedding 模型 + 向量数据库（ChromaDB）
+- [x] RAG 升级：BGE Embedding + ChromaDB 向量检索
+- [ ] **切块策略升级**：语义单元切分 + 父子块 + 元数据继承
+  - 当前按固定 700 字符切分，会切断语义、丢失上下文
+  - 优化方向：按段落/项目/经历为语义单元切分，检索用小块、送给 LLM 用大块
+  - 量化验证：跑基线数据 → 优化 → 对比检索命中率，用数据证明优化效果
 - [ ] 引入 LangChain 框架，构建标准 RAG Pipeline
+- [ ] Reranker 重排序（bge-reranker-base 二阶段检索）
 - [ ] 报告导出（Markdown/PDF）
-- [ ] 更多岗位模板（Java 后端、LLM Agent、前端等）
 - [ ] CI/CD 流水线
 
 ## 📄 License
