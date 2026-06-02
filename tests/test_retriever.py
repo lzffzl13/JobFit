@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.retriever import chunk_text, retrieve_evidence
 
 
@@ -9,6 +11,7 @@ def test_chunk_text_splits_content():
     assert chunks[0].source == "resume"
 
 
+@pytest.mark.slow
 def test_retrieve_evidence_returns_relevant_chunks():
     chunks = chunk_text(
         "FastAPI 后端项目，使用 Redis 缓存。\n\n机器学习课程项目，使用 PyTorch。",
@@ -21,3 +24,4 @@ def test_retrieve_evidence_returns_relevant_chunks():
 
     assert result
     assert "FastAPI" in result[0].text
+    assert result[0].score > 0

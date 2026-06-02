@@ -1,13 +1,33 @@
-import math
+"""
+Vector-based retrieval using BGE Embedding + ChromaDB.
+
+Chunking uses character-level splitting with sentence-boundary detection.
+Retrieval uses dense vector similarity (BGE-small-zh-v1.5) via ChromaDB.
+"""
+
+import logging
 import re
-from collections import Counter
+from functools import lru_cache
+
+import chromadb
+from sentence_transformers import SentenceTransformer
 
 from app.schemas.jobfit import Evidence
 
-TOKEN_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9+#.\-]{1,}|[\u4e00-\u9fff]{2,}")
+logger = logging.getLogger(__name__)
+
+EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
+
+
+@lru_cache(maxsize=1)
+def _get_model() -> SentenceTransformer:
+    """Load BGE embedding model (cached after first call)."""
+    logger.info("Loading embedding model: %s", EMBEDDING_MODEL)
+    return SentenceTransformer(EMBEDDING_MODEL)
 
 
 def chunk_text(text: str, source: str, chunk_size: int = 700, overlap: int = 120) -> list[Evidence]:
+    """Split text into overlapping chunks with sentence-boundary detection."""
     normalized = re.sub(r"\n{3,}", "\n\n", text).strip()
     if not normalized:
         return []
@@ -38,36 +58,48 @@ def retrieve_evidence(
     chunks: list[Evidence],
     top_k: int = 8,
 ) -> list[Evidence]:
-    query_tokens = _tokenize(query)
-    if not query_tokens:
-        return chunks[:top_k]
+    """Retrieve most relevant chunks using BGE embedding + ChromaDB vector search."""
+    if not chunks:
+        return []
 
-    scored = []
-    for chunk in chunks:
-        score = _score(query_tokens, _tokenize(chunk.text))
-        if score > 0:
-            scored.append(chunk.model_copy(update={"score": round(score, 4)}))
+    model = _get_model()
+    texts = [chunk.text for chunk in chunks]
 
-    scored.sort(key=lambda item: item.score, reverse=True)
-    return scored[:top_k]
+    # Encode all chunk texts into dense vectors
+    embeddings = model.encode(texts, normalize_embeddings=True).tolist()
 
+    # Build an in-memory ChromaDB collection
+    client = chromadb.Client()
+    collection = client.create_collection(name="retrieval", metadata={"hnsw:space": "cosine"})
 
-def _tokenize(text: str) -> Counter[str]:
-    tokens = [token.lower() for token in TOKEN_PATTERN.findall(text)]
-    return Counter(tokens)
+    collection.add(
+        documents=texts,
+        embeddings=embeddings,
+        ids=[f"chunk_{i}" for i in range(len(chunks))],
+        metadatas=[{"source": chunk.source, "chunk_id": chunk.chunk_id} for chunk in chunks],
+    )
 
+    # Encode query and search
+    query_embedding = model.encode([query], normalize_embeddings=True).tolist()
+    results = collection.query(
+        query_embeddings=query_embedding,
+        n_results=min(top_k, len(chunks)),
+    )
 
-def _score(query_tokens: Counter[str], doc_tokens: Counter[str]) -> float:
-    if not doc_tokens:
-        return 0
+    # Build evidence list with similarity scores
+    evidence: list[Evidence] = []
+    for doc, distance, metadata in zip(
+        results["documents"][0],
+        results["distances"][0],
+        results["metadatas"][0],
+    ):
+        # ChromaDB cosine distance = 1 - cosine_similarity
+        score = round(1 - distance, 4)
+        evidence.append(Evidence(
+            source=metadata["source"],
+            chunk_id=metadata["chunk_id"],
+            text=doc,
+            score=max(0.0, score),
+        ))
 
-    overlap = set(query_tokens) & set(doc_tokens)
-    lexical = sum(min(query_tokens[token], doc_tokens[token]) for token in overlap)
-    if lexical == 0:
-        return 0
-
-    query_norm = math.sqrt(sum(count * count for count in query_tokens.values()))
-    doc_norm = math.sqrt(sum(count * count for count in doc_tokens.values()))
-    cosine = lexical / max(query_norm * doc_norm, 1)
-    coverage = len(overlap) / max(len(query_tokens), 1)
-    return cosine * 0.7 + coverage * 0.3
+    return evidence
