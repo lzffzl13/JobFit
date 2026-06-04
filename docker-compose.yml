@@ -3,7 +3,7 @@ services:
     build: .
     container_name: jobfit-agent
     ports:
-      - "7897:8000"
+      - "9000:8000"
     env_file:
       - .env
     restart: unless-stopped

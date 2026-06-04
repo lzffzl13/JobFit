@@ -39,11 +39,11 @@
 ## 当前运行
 
 ```bash
-uvicorn app.main:app --reload --port 7897
+uvicorn app.main:app --reload --port 9000
 ```
 
-- Web：http://127.0.0.1:7897
-- API 文档：http://127.0.0.1:7897/docs
+- Web：http://127.0.0.1:9000
+- API 文档：http://127.0.0.1:9000/docs
 
 ## 后续优化
 

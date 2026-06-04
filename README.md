@@ -116,13 +116,13 @@ cp .env.example .env
 # 编辑 .env 填入 DEEPSEEK_API_KEY
 
 # 5. 启动服务
-uvicorn app.main:app --reload --port 7897
+uvicorn app.main:app --reload --port 9000
 ```
 
 访问：
 
-- 🌐 **Web 页面：** http://127.0.0.1:7897
-- 📚 **API 文档：** http://127.0.0.1:7897/docs
+- 🌐 **Web 页面：** http://127.0.0.1:9000
+- 📚 **API 文档：** http://127.0.0.1:9000/docs
 
 ### Docker 部署
 
