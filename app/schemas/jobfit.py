@@ -43,28 +43,18 @@ class InterviewQuestion(BaseModel):
 
 
 class ScoreBreakdown(BaseModel):
+    # Per-requirement counts
     core_matched: int = 0
     core_total: int = 0
     bonus_matched: int = 0
     bonus_total: int = 0
-    core_ratio: float = 0
-    bonus_ratio: float = 0
-    core_score: float = 0
-    bonus_jd: float = 0
-    bonus_extra: float = 0
-    raw_score: float = 0
-    final_cap: int = 100
-    cap_reasons: list[str] = Field(default_factory=list)
+    # LLM's scores
+    match_score: int = 0
+    bonus_score: int = 0
+    extra_score: int = 0
+    # Per-requirement detail
     core_detail: dict[str, str] = Field(default_factory=dict)
     evidence_notes: list[str] = Field(default_factory=list)
-    core_points: int = 0
-    core_points_total: int = 70
-    bonus_points: int = 0
-    bonus_points_total: int = 15
-    extra_points: int = 0
-    extra_points_total: int = 15
-    extra_matched: int = 0
-    extra_total: int = 5
 
 
 class JobFitAnalysis(BaseModel):
@@ -81,7 +71,6 @@ class JobFitAnalysis(BaseModel):
     score_breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
     core_requirements: list[str] = Field(default_factory=list)
     bonus_requirements: list[str] = Field(default_factory=list)
-    extra_strengths: list[str] = Field(default_factory=list)
     risk_items: list[str] = Field(default_factory=list)
     model_used: str
     fallback_used: bool = False

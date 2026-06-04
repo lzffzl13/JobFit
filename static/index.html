@@ -500,7 +500,7 @@
           <span class="eyebrow">Resume x JD</span>
           <h1>JobFit Agent</h1>
         </div>
-        <span class="muted small">Deterministic scoring with evidence</span>
+        <span class="muted small">LLM-powered resume-job matching</span>
       </div>
     </header>
     <main class="wrap">
@@ -602,7 +602,7 @@
             <div class="score-box">
               <span>总分</span>
               <div class="score"><strong>${data.match_score}</strong><span class="muted">/ 100</span></div>
-              <p class="small muted">原始分 ${numberPart(breakdown.raw_score)} · 上限 ${breakdown.final_cap || 100}</p>
+              <p class="small muted">LLM 评估 · ${escapeHtml(data.model_used)}</p>
             </div>
             <div class="summary-copy">
               <div>
@@ -610,23 +610,21 @@
                 <p class="muted">${escapeHtml(data.summary)}</p>
               </div>
               <div class="metrics">
-                ${metric("岗位核心匹配", scorePart(breakdown.core_points, breakdown.core_points_total))}
-                ${metric("JD 加分项", scorePart(breakdown.bonus_points, breakdown.bonus_points_total))}
-                ${metric("简历竞争力", scorePart(breakdown.extra_points, breakdown.extra_points_total))}
-                ${metric("核心命中", `${breakdown.core_matched || 0}/${breakdown.core_total || 0}`)}
-                ${metric("模型状态", escapeHtml(data.model_used))}
+                ${metric("核心需求命中", `${breakdown.core_matched || 0}/${breakdown.core_total || 0}`)}
+                ${metric("加分项命中", `${breakdown.bonus_matched || 0}/${breakdown.bonus_total || 0}`)}
+                ${metric("LLM 加分", breakdown.bonus_score || 0)}
+                ${metric("LLM 竞争力", breakdown.extra_score || 0)}
+                ${metric("模型", escapeHtml(data.model_used))}
               </div>
               ${data.fallback_used ? '<span class="pill warn">当前未调用 DeepSeek，返回本地规则结果</span>' : ""}
             </div>
           </div>
 
           <div class="section-grid">
-            ${pillSection("上限命中", breakdown.cap_reasons || [], "danger")}
             ${pillSection("待补强", data.risk_items || [], "warn")}
             ${coreEvidenceSection(breakdown.core_detail || {})}
             ${requirementSection(data.jd_requirements || [])}
             ${listSection("已满足", (data.matched_strengths || []).map((x) => ({ title: x.requirement, body: x.resume_evidence, meta: `证据分 ${x.score}` })))}
-            ${listSection("简历额外竞争力", (data.extra_strengths || []).map(splitDetail))}
             ${listSection("评分备注", (breakdown.evidence_notes || []).map((x) => ({ title: x, body: "", meta: "" })))}
             ${listSection("待补强建议", (data.gaps || []).map((x) => ({ title: x.requirement, body: x.suggestion, meta: "" })))}
             ${listSection("简历优化建议", (data.resume_rewrites || []).map((x) => ({ title: x.after, body: x.reason, meta: x.before })), true)}
@@ -680,9 +678,6 @@
           <tr>
             <td>${escapeHtml(item.name)}</td>
             <td>${escapeHtml(item.priority || "core")}</td>
-            <td>${escapeHtml(item.type || item.category)}</td>
-            <td>${escapeHtml((item.options || []).join(" / ") || "-")}</td>
-            <td>${escapeHtml(item.evidence || "-")}</td>
           </tr>
         `);
         return `
@@ -690,8 +685,8 @@
             <h3>JD 结构化要求</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>要求</th><th>优先级</th><th>类型</th><th>选项</th><th>JD 证据</th></tr></thead>
-                <tbody>${rows.join("") || '<tr><td colspan="5" class="muted">暂无结构化要求</td></tr>'}</tbody>
+                <thead><tr><th>要求</th><th>优先级</th></tr></thead>
+                <tbody>${rows.join("") || '<tr><td colspan="2" class="muted">暂无结构化要求</td></tr>'}</tbody>
               </table>
             </div>
           </section>

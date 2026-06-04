@@ -70,7 +70,7 @@ def retrieve_evidence(
 
     # Build an in-memory ChromaDB collection
     client = chromadb.Client()
-    collection = client.create_collection(name="retrieval", metadata={"hnsw:space": "cosine"})
+    collection = client.get_or_create_collection(name="retrieval", metadata={"hnsw:space": "cosine"})
 
     collection.add(
         documents=texts,
@@ -92,6 +92,7 @@ def retrieve_evidence(
         results["documents"][0],
         results["distances"][0],
         results["metadatas"][0],
+        strict=False,
     ):
         # ChromaDB cosine distance = 1 - cosine_similarity
         score = round(1 - distance, 4)

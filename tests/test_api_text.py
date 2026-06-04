@@ -24,28 +24,33 @@ def test_analyze_endpoint_with_pasted_resume_text():
     assert payload["match_score"] >= 0
     assert payload["evidence"]
     assert "score_breakdown" in payload
-    assert "core_points" in payload["score_breakdown"]
-    assert "bonus_points" in payload["score_breakdown"]
-    assert "extra_points" in payload["score_breakdown"]
+    assert "match_score" in payload["score_breakdown"]
     assert "core_requirements" in payload
-    assert "extra_strengths" in payload
     assert "risk_items" in payload
 
 
-def test_deepseek_output_cannot_override_deterministic_score(monkeypatch):
-    class FakeDeepSeekClient:
-        async def analyze(self, resume_context: str, jd_context: str, jd_semantics: str):
+def test_llm_ratios_drive_score(monkeypatch):
+    """LLM's per-requirement evidence_ratio drives the final score via validator."""
+
+    class FakeLLMClient:
+        async def analyze(self, system_prompt: str, user_prompt: str):
             return {
-                "match_score": 1,
-                "summary": "模型故意给出很低分。",
-                "jd_requirements": ["FastAPI/Flask/Django"],
-                "matched_strengths": ["模型认为只命中一点"],
-                "gaps": ["Flask"],
-                "resume_rewrites": ["补充项目证据"],
-                "interview_questions": ["请介绍 FastAPI 项目"],
+                "match_score": 76,
+                "bonus_score": 10,
+                "extra_score": 5,
+                "requirements": [
+                    {"name": "Python 基础", "priority": "core", "evidence_ratio": 0.9, "confidence": 0.85, "reasoning": "strong Python", "evidence_quote": "Python"},
+                    {"name": "Python Web框架", "priority": "core", "evidence_ratio": 0.8, "confidence": 0.8, "reasoning": "FastAPI project", "evidence_quote": "FastAPI"},
+                    {"name": "MySQL/SQL", "priority": "core", "evidence_ratio": 0.7, "confidence": 0.75, "reasoning": "MySQL usage", "evidence_quote": "MySQL"},
+                    {"name": "接口开发能力", "priority": "core", "evidence_ratio": 0.85, "confidence": 0.9, "reasoning": "RESTful API", "evidence_quote": "RESTful"},
+                ],
+                "summary": "较强的后端匹配。",
+                "gaps": [],
+                "resume_rewrites": [],
+                "interview_questions": [],
             }
 
-    monkeypatch.setattr("app.services.jobfit.DeepSeekClient", FakeDeepSeekClient)
+    monkeypatch.setattr("app.services.jobfit.get_llm_client", lambda: FakeLLMClient())
 
     client = TestClient(app)
     response = client.post(
@@ -53,12 +58,11 @@ def test_deepseek_output_cannot_override_deterministic_score(monkeypatch):
         data={
             "resume_text": (
                 "我使用 Python、FastAPI、MySQL 和 SQLAlchemy 开发博客后端项目，"
-                "完成用户、文章、评论 RESTful API 和 CRUD 接口，使用 Docker 部署，"
-                "pytest 编写接口测试，Git 协作维护文档，获得竞赛二等奖。"
+                "完成用户、文章、评论 RESTful API 和 CRUD 接口。"
             ),
             "jd_text": (
-                "掌握 Python/JAVA 基础语法，了解至少一种 Python Web 框架 Django/Flask/FastAPI，"
-                "熟悉 MySQL 和 SQL，能够参与后端接口开发。Spring Boot、MyBatis 为加分项。"
+                "掌握 Python 基础语法，了解 Python Web 框架 Django/Flask/FastAPI，"
+                "熟悉 MySQL 和 SQL，能够参与后端接口开发。"
             ),
         },
     )
@@ -66,10 +70,9 @@ def test_deepseek_output_cannot_override_deterministic_score(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["fallback_used"] is False
+    # LLM outputs match_score=76 directly; validator only clamps
     assert payload["match_score"] >= 60
-    assert payload["match_score"] != 1
-    assert payload["score_breakdown"]["core_points"] > 0
-    assert all(gap["requirement"] != "Flask" for gap in payload["gaps"])
+    assert payload["score_breakdown"]["core_matched"] > 0
 
 
 def test_analyze_endpoint_requires_resume_text_or_file():

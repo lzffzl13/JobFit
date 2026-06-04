@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.schemas.jobfit import JobFitAnalysis
 from app.services.document_parser import parse_upload
 from app.services.jobfit import analyze_job_fit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobfit", tags=["jobfit"])
 
@@ -27,4 +31,11 @@ async def analyze_resume_and_jd(
             detail="Provide a resume file or paste resume text with at least 30 characters.",
         )
 
-    return await analyze_job_fit(resume_text=resolved_resume_text, jd_text=jd_text)
+    try:
+        return await analyze_job_fit(resume_text=resolved_resume_text, jd_text=jd_text)
+    except Exception as exc:
+        logger.error("Analysis failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI 分析服务暂时不可用，请稍后重试。",
+        ) from exc
