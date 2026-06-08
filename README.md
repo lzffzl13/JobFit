@@ -2,16 +2,15 @@
 
 # 🎯 JobFit Agent
 
-**AI-first 简历-JD 匹配分析系统**
+**LLM 提取 + 程序匹配的简历-JD 分析系统**
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![RAG](https://img.shields.io/badge/RAG-BGE_+_ChromaDB-FF6F00?logo=openai&logoColor=white)
 ![DeepSeek](https://img.shields.io/badge/DeepSeek-Chat-4D6BFE?logo=openai&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-上传简历 + 粘贴 JD → AI 生成结构化匹配分析报告
+上传简历 + 粘贴 JD → 结构化匹配分析报告
 
 </div>
 
@@ -19,76 +18,44 @@
 
 ## 📖 项目简介
 
-JobFit Agent 是一个 **AI-first** 的简历-JD 匹配分析系统。核心设计原则：**LLM 做所有判断，代码只做管道和校验**。
+JobFit Agent 是一个简历-JD 匹配分析系统。核心设计原则：**LLM 负责理解，程序负责判断，LLM 负责表达**。
 
 用户上传简历（PDF/DOCX/TXT/Markdown）或直接粘贴文本，配合岗位 JD，系统输出：
 
-- 🎯 **匹配度评分**（LLM 综合判断 0-100）
-- 📋 **结构化 JD 要求**（核心要求 + 加分项，LLM 提取）
-- 🔍 **逐项证据评估**（evidence_ratio 0.0~1.0 连续值 + confidence）
-- ⚠️ **能力缺口与风险项**（低匹配的核心需求）
+- 🎯 **匹配度评分**（程序加权计算，0-100）
+- 📊 **分维度得分**（技能/经验/项目/学历）
+- ✅ **逐项匹配详情**（匹配度 + 简历证据）
+- ⚠️ **能力缺口与风险项**（未匹配的核心需求）
 - 💡 **简历优化建议**（针对性改写）
-- ❓ **高频面试问题**（基于简历和 JD 生成）
-- 📎 **引用证据溯源**（向量检索的原始片段）
+- ❓ **高频面试问题**（基于匹配薄弱环节生成）
 
 ## 🏗️ 系统架构
 
 ```
-┌──────────────┐     ┌──────────────┐
-│   简历上传    │     │   JD 粘贴    │
-└──────┬───────┘     └──────┬───────┘
-       │                    │
-       ▼                    ▼
-┌─────────┐           ┌─────────┐
-│ chunk() │           │ chunk() │   ← 按 600 字切块
-└────┬────┘           └────┬────┘
-     │                     │
-     ▼                     ▼
-┌─────────────────────────────────────┐
-│  RAG 检索（BGE Embedding +          │
-│  ChromaDB 向量检索）                 │
-│  简历 top-8 ←→ JD top-5 交叉检索    │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│  LLM (DeepSeek)                    │
-│  • 从 JD 提取需求（任意岗位）       │
-│  • 逐项评估 evidence_ratio + conf   │
-│  • 输出 match / bonus / extra score │
-│  • 输出 gaps / rewrites / questions │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│  validator.py                       │
-│  • clamp 分数到合法范围             │
-│  • 低 confidence 发 warning         │
-│  • 计算命中数（只数数，不算分）      │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-       ┌───────────────┐
-       │ JobFitAnalysis │  ← 最终响应
-       └───────────────┘
+简历 ──→ LLM 提取 ──→ 结构化 JSON ──┐
+                                      ├─→ 程序匹配 ──→ 匹配结果 ──→ LLM 建议 ──→ 返回
+JD   ──→ LLM 提取 ──→ 需求列表   ──┘
 
-LLM 失败 → 503，不兜底
+Step 1: LLM 从简历提取 skills/projects/experience（只负责理解）
+Step 2: LLM 从 JD 提取 requirements + priority（只负责理解）
+Step 3: 程序做匹配计算（同义词表 + Embedding 语义匹配，确定性）
+Step 4: LLM 基于匹配结果生成建议和面试题（只负责表达）
 ```
 
-**核心设计原则：** LLM 负责所有判断（提取需求、评估匹配、给出分数），代码只做管道编排、防御性解析和分数 clamp。没有规则引擎、没有 fallback、没有硬编码策略。
+**核心设计原则：** LLM 只做它擅长的事（理解非结构化文本、生成人类可读输出），程序做它擅长的事（确定性计算、可复现结果）。匹配打分不经过 LLM，结果稳定不幻觉。
 
 ## ✨ 功能特性
 
 | 功能 | 说明 |
 |------|------|
 | 多格式简历解析 | 支持 PDF、DOCX、TXT、Markdown，自动编码检测 |
-| AI 需求提取 | LLM 从 JD 提取需求，支持任意岗位类型，无预设策略 |
-| RAG 语义检索 | BGE Embedding + ChromaDB 向量检索，语义匹配替代词频匹配 |
-| 连续证据评估 | evidence_ratio 0.0~1.0 连续浮点，LLM 自主判断 |
-| LLM 综合评分 | match_score + bonus_score + extra_score，LLM 直接输出 |
-| 防御性解析 | 容错 LLM 输出格式不一致（字段别名、类型强制、缺失处理） |
+| AI 需求提取 | LLM 从 JD 提取需求，支持任意岗位类型 |
+| AI 简历提取 | LLM 从简历提取结构化数据（技能、项目、经验、学历） |
+| 程序匹配引擎 | 同义词表（~80 条高频映射）+ BGE Embedding 语义匹配 |
+| 加权评分 | 按需求级别（required/preferred/nice-to-have）加权计算 |
+| 四层容错 | 强约束 prompt → 自动重试 → 字段兜底 → Pydantic 校验 |
 | 响应式前端 | 单页报告，支持桌面/平板/手机 |
-| Docker 部署 | 一键启动，国内 PyPI 镜像加速 |
+| Docker 部署 | 一键启动 |
 
 ## 🚀 快速开始
 
@@ -133,21 +100,22 @@ docker compose up --build
 
 ## 📐 评分机制
 
-LLM 直接输出三个分数，validator 只做 clamp（不重算）：
+程序按需求级别加权计算，LLM 不参与打分：
 
-| 分数 | 范围 | 含义 |
-|------|------|------|
-| `match_score` | 0-100 | LLM 综合匹配判断 |
-| `bonus_score` | 0-15 | JD 加分项匹配 |
-| `extra_score` | 0-15 | 简历额外竞争力（量化成果、开源、奖项等） |
+| 需求级别 | 权重 | 含义 |
+|----------|------|------|
+| `required` | 5 | 必须具备 |
+| `preferred` | 2 | 优先考虑 |
+| `nice-to-have` | 1 | 加分项 |
 
-每个需求由 LLM 评估：
+分类维度加权汇总：
 
-| 字段 | 类型 | 含义 |
-|------|------|------|
-| `evidence_ratio` | 0.0~1.0 | 证据强度（连续值，非离散） |
-| `confidence` | 0.0~1.0 | LLM 对该判断的置信度 |
-| `priority` | core/bonus | 需求优先级 |
+| 维度 | 权重 | 匹配方式 |
+|------|------|----------|
+| 技能 | 4 | 同义词表 + Embedding 相似度 |
+| 经验 | 3 | 年限数值比较 |
+| 项目 | 3 | Embedding 语义匹配 |
+| 学历 | 2 | 学位等级规则匹配 |
 
 ## 🗂️ 项目结构
 
@@ -161,13 +129,12 @@ JobFit/
 │   │   ├── config.py            # 环境变量配置（pydantic-settings）
 │   │   └── interfaces.py        # ILLMClient 协议
 │   ├── schemas/
-│   │   └── jobfit.py            # Pydantic 数据模型
+│   │   └── jobfit.py            # Pydantic 数据模型（Resume/JD/Match）
 │   └── services/
 │       ├── document_parser.py   # 文档解析（PDF/DOCX/TXT/MD）
-│       ├── jobfit.py            # 编排器：chunk → retrieve → LLM → validate
-│       ├── llm.py               # prompt 构建 + JSON 防御性解析
-│       ├── retriever.py         # 文本分块 + BGE Embedding + ChromaDB
-│       ├── validator.py         # clamp + confidence 警告 + 命中计数
+│       ├── jobfit.py            # 编排器：提取 → 匹配 → 建议
+│       ├── llm.py               # LLM 提取 + 建议生成 + 容错
+│       ├── matcher.py           # 程序匹配引擎（同义词 + Embedding）
 │       └── llm_clients/
 │           ├── base.py          # BaseLLMClient 抽象基类
 │           ├── deepseek.py      # DeepSeek API 实现
@@ -176,13 +143,11 @@ JobFit/
 ├── static/
 │   └── index.html               # 单页前端（原生 HTML/CSS/JS）
 ├── samples/                     # 示例数据
-│   └── resume.txt
 ├── tests/                       # 测试用例
 │   ├── test_api.py              # 集成测试（依赖真实 API）
-│   ├── test_api_text.py         # 文本输入集成测试 + mock 测试
-│   ├── test_llm_normalizer.py   # normalize_llm_payload 单元测试
-│   ├── test_validator.py        # validator 单元测试
-│   └── test_retriever.py        # 分块与检索测试
+│   ├── test_api_text.py         # 文本输入集成测试 + mock
+│   ├── test_matcher.py          # 匹配引擎单元测试
+│   └── test_llm_extractors.py   # LLM 提取容错测试
 ├── Dockerfile
 ├── docker-compose.yml
 ├── pyproject.toml
@@ -205,22 +170,20 @@ JobFit/
 
 | 字段 | 说明 |
 |------|------|
-| `match_score` | 匹配度评分（0-100） |
-| `summary` | 分析总结 |
-| `score_breakdown` | 评分拆解（命中数 + LLM 三项分数 + 逐项详情） |
-| `jd_requirements` | 结构化 JD 要求 |
-| `matched_strengths` | 匹配优势 |
+| `match_score` | 匹配度评分（0-100，程序计算） |
+| `summary` | 分析总结（LLM 生成） |
+| `score_breakdown` | 分维度得分（技能/经验/项目/学历） |
+| `matched_strengths` | 已匹配项（匹配度 + 简历证据） |
 | `gaps` | 能力缺口 |
 | `resume_rewrites` | 简历优化建议 |
 | `interview_questions` | 面试问题 |
-| `evidence` | 引用证据片段 |
-| `risk_items` | 低匹配核心需求（ratio < 0.85） |
+| `risk_items` | 低匹配核心需求 |
 
 ## 🧪 测试
 
 ```bash
-# 运行单元测试（不需要 API）
-pytest tests/test_validator.py tests/test_llm_normalizer.py -v
+# 运行全部单元测试（不需要 API）
+pytest tests/test_matcher.py tests/test_llm_extractors.py tests/test_api_text.py -v
 
 # 运行全部测试（集成测试需要 DeepSeek API）
 pytest -v
@@ -231,10 +194,9 @@ ruff check app tests
 
 **测试覆盖：**
 
-- ✅ validator clamp 逻辑（分数边界、命中计数、confidence 警告）
-- ✅ normalize_llm_payload 边界情况（字段别名、缺失字段、类型容错）
-- ✅ 文本分块与向量检索
-- ✅ 集成测试（文本输入 + mock LLM）
+- ✅ 匹配引擎（同义词、技能匹配、经验匹配、教育匹配、完整流水线）
+- ✅ LLM 提取容错（JSON 解析、字段兜底、类型强制）
+- ✅ API 集成测试（mock LLM，验证端到端流程）
 
 ## ⚙️ 环境变量
 
@@ -245,63 +207,48 @@ LLM_PROVIDER=deepseek           # LLM 提供商
 DEEPSEEK_API_KEY=               # DeepSeek API Key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
-LLM_TIMEOUT_SECONDS=45          # LLM 请求超时时间
-MAX_CONTEXT_CHARS=9000          # 发送给 LLM 的最大 context 长度
+LLM_TIMEOUT_SECONDS=60          # LLM 请求超时时间（三次调用累加）
+EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5  # Embedding 模型
 ```
 
-## 📌 设计决策
+## 📌 版本演进
 
-### 为什么 LLM 做所有判断？
-
-早期版本使用规则引擎计算分数（70/15/15 公式 + 方向硬上限），LLM 只负责生成解释。问题：
-
-- 规则引擎无法处理任意岗位类型（需要为每种岗位预设策略）
-- evidence_ratio 离散分级（0/30/60/85/100）丢失精度
-- 代码量膨胀（fallback.py 1000+ 行，jd_strategies/ 整个目录）
-
-重构后：LLM 直接输出 match_score，validator 只 clamp 不重算。代码量减少 60%+，支持任意岗位。
-
-### 为什么用 BGE Embedding + ChromaDB？
-
-相比词频匹配，向量检索能捕捉语义相似性——"后端开发"能匹配"服务端开发"，即使字面完全不同。BGE-small-zh-v1.5 是中文场景下效果最好的轻量 Embedding 模型之一，ChromaDB 提供零配置的向量存储和检索。
+| 版本 | 匹配方式 | 优点 | 缺点 |
+|------|----------|------|------|
+| V1 | 硬编码规则 + AI 建议 | 预设岗位匹配准确，评分客观 | 代码量大，可扩展性差，评分精度低 |
+| V2 | LLM 全包（提取+判断+打分+建议） | 代码简洁，适合各种岗位 | 幻觉严重（大模型底层问题） |
+| V3 | LLM 提取 + 程序匹配 + LLM 建议 | 结合两者优点，程序判断不幻觉 | LLM 提取可能丢失信息，输出格式不可控 |
 
 ## 🗺️ 后续优化
 
 ### 高优先级
 
-- [ ] **检索质量优化**
-  - 当前按固定 600 字符硬切，可能切断关键信息
-  - 优化：滑动窗口分块、按段落/句子边界切分、重叠窗口（overlap）
-  - 检索质量直接影响 LLM 判断准确性，这是上游
-- [ ] **Prompt 迭代**
-  - SYSTEM_PROMPT 和 build_user_prompt 需要 A/B 验证
-  - 优化：Few-shot 示例、Chain-of-Thought 引导、输出格式约束更严格
-  - 成本最低，效果提升可能最明显
-- [ ] **结构化输出**
-  - 当前靠 LLM 自觉输出 JSON，normalize_llm_payload 大量防御性解析
-  - 优化：用 DeepSeek JSON mode / function calling / Pydantic output parser
-  - 减少解析失败率，减少 normalize 代码
-- [ ] **单元测试补全**
-  - 当前集成测试依赖真实 API，需要 mock LLM client
-  - 已完成：validator 测试 + normalizer 测试（19 个）
-  - 待补：jobfit.py 编排器 mock 测试、document_parser 测试
+- [ ] **V4 架构优化** — 简历不提取，程序直接在原文上匹配（同义词 + Embedding），消除信息丢失
+- [ ] **Prompt 迭代** — 提取 prompt A/B 验证，提升提取准确率
+- [ ] **同义词表扩充** — 覆盖更多行业术语和技术栈
 
 ### 中优先级
 
-- [ ] **LLM 超时/重试机制** — 提升稳定性，当前超时直接 503
-- [ ] **请求日志和性能追踪** — 方便调试和优化（记录每次请求的耗时、token 用量、检索命中率）
-- [ ] **Reranker 重排序** — bge-reranker-base 二阶段检索，提升检索精度
 - [ ] **缓存机制** — 相同 resume+JD 组合缓存结果，减少 API 调用
 - [ ] **流式输出** — SSE 流式返回，前端实时显示分析进度
 - [ ] **多模型支持** — 补全 OpenAI client，支持 GPT-4o / Claude 对比测试
+- [ ] **Embedding 阈值调优** — 当前 0.8 阈值偏高，需要根据实际数据调优
 
 ### 低优先级
 
 - [ ] **导出功能** — 分析报告导出为 Markdown/PDF
 - [ ] **历史记录** — SQLite 存储分析结果，支持查看和对比
 - [ ] **批量分析** — 一次投多个 JD 或多个简历
-- [ ] **评估体系** — 人工标注数据集，量化 LLM 输出质量
 - [ ] **CI/CD 流水线** — 自动测试 + 部署
+
+### v2 规划：求职 Agent
+
+从"分析工具"升级为"求职 Agent"——不只分析匹配度，直接帮用户优化简历。
+
+- [ ] **简历自动优化** — 输入原始简历 + JD，输出针对该 JD 优化后的简历
+- [ ] **优化前后对比** — 重新跑匹配分析对比分数，分数没提升则回退
+- [ ] **多轮对话** — 用户可对话调整优化方向
+- [ ] **批量投递建议** — 一份简历 + 多个 JD → 优先级排序
 
 ## 📄 License
 

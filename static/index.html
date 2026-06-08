@@ -500,7 +500,7 @@
           <span class="eyebrow">Resume x JD</span>
           <h1>JobFit Agent</h1>
         </div>
-        <span class="muted small">LLM-powered resume-job matching</span>
+        <span class="muted small">AI extraction + deterministic matching</span>
       </div>
     </header>
     <main class="wrap">
@@ -575,7 +575,7 @@
         button.disabled = true;
         button.textContent = "分析中...";
         result.className = "empty muted";
-        result.textContent = "正在读取简历、检索证据并生成分析...";
+        result.textContent = "正在提取简历信息、分析 JD 要求并计算匹配度...";
 
         try {
           const response = await fetch("/jobfit/analyze", { method: "POST", body: data });
@@ -600,9 +600,9 @@
         result.innerHTML = `
           <div class="summary-band">
             <div class="score-box">
-              <span>总分</span>
+              <span>匹配度</span>
               <div class="score"><strong>${data.match_score}</strong><span class="muted">/ 100</span></div>
-              <p class="small muted">LLM 评估 · ${escapeHtml(data.model_used)}</p>
+              <p class="small muted">程序计算 · ${escapeHtml(data.model_used)}</p>
             </div>
             <div class="summary-copy">
               <div>
@@ -610,10 +610,10 @@
                 <p class="muted">${escapeHtml(data.summary)}</p>
               </div>
               <div class="metrics">
-                ${metric("核心需求命中", `${breakdown.core_matched || 0}/${breakdown.core_total || 0}`)}
-                ${metric("加分项命中", `${breakdown.bonus_matched || 0}/${breakdown.bonus_total || 0}`)}
-                ${metric("LLM 加分", breakdown.bonus_score || 0)}
-                ${metric("LLM 竞争力", breakdown.extra_score || 0)}
+                ${metric("技能匹配", `${breakdown.skill_score || 0}`)}
+                ${metric("经验匹配", `${breakdown.experience_score || 0}`)}
+                ${metric("项目匹配", `${breakdown.project_score || 0}`)}
+                ${metric("学历匹配", `${breakdown.education_score || 0}`)}
                 ${metric("模型", escapeHtml(data.model_used))}
               </div>
               ${data.fallback_used ? '<span class="pill warn">当前未调用 DeepSeek，返回本地规则结果</span>' : ""}
@@ -622,24 +622,11 @@
 
           <div class="section-grid">
             ${pillSection("待补强", data.risk_items || [], "warn")}
-            ${coreEvidenceSection(breakdown.core_detail || {})}
-            ${requirementSection(data.jd_requirements || [])}
-            ${listSection("已满足", (data.matched_strengths || []).map((x) => ({ title: x.requirement, body: x.resume_evidence, meta: `证据分 ${x.score}` })))}
-            ${listSection("评分备注", (breakdown.evidence_notes || []).map((x) => ({ title: x, body: "", meta: "" })))}
+            ${matchDetailSection(data.matched_strengths || [])}
             ${listSection("待补强建议", (data.gaps || []).map((x) => ({ title: x.requirement, body: x.suggestion, meta: "" })))}
             ${listSection("简历优化建议", (data.resume_rewrites || []).map((x) => ({ title: x.after, body: x.reason, meta: x.before })), true)}
             ${listSection("面试问题", (data.interview_questions || []).map((x) => ({ title: x.question, body: x.focus, meta: x.difficulty })))}
           </div>
-
-          <details>
-            <summary>引用证据</summary>
-            <div class="evidence">
-              ${(data.evidence || [])
-                .slice(0, 8)
-                .map((x) => `<div class="quote"><span class="tag">${escapeHtml(x.source)} #${x.chunk_id} · score ${x.score}</span><pre>${escapeHtml(x.text)}</pre></div>`)
-                .join("") || '<p class="muted small">暂无引用证据</p>'}
-            </div>
-          </details>
         `;
       }
 
@@ -654,39 +641,18 @@
         return `<section class="section-card"><h3>${title}</h3><div class="pill-list">${content}</div></section>`;
       }
 
-      function coreEvidenceSection(coreDetail) {
-        const rows = Object.entries(coreDetail).map(([name, detail]) => {
-          const level = String(detail).split(":")[0] || "未识别";
-          const evidence = String(detail).slice(String(detail).indexOf(":") + 1);
-          return `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(level)}</td><td>${escapeHtml(evidence || detail)}</td></tr>`;
+      function matchDetailSection(items) {
+        const rows = items.map((item) => {
+          const pct = typeof item.score === "number" ? item.score : 0;
+          return `<tr><td>${escapeHtml(item.requirement)}</td><td>${pct}%</td><td>${escapeHtml(item.resume_evidence || "-")}</td></tr>`;
         });
         return `
           <section class="section-card wide">
-            <h3>核心证据强度</h3>
+            <h3>匹配详情</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>核心要求</th><th>证据等级</th><th>简历证据</th></tr></thead>
-                <tbody>${rows.join("") || '<tr><td colspan="3" class="muted">暂无核心证据</td></tr>'}</tbody>
-              </table>
-            </div>
-          </section>
-        `;
-      }
-
-      function requirementSection(items) {
-        const rows = items.map((item) => `
-          <tr>
-            <td>${escapeHtml(item.name)}</td>
-            <td>${escapeHtml(item.priority || "core")}</td>
-          </tr>
-        `);
-        return `
-          <section class="section-card wide">
-            <h3>JD 结构化要求</h3>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>要求</th><th>优先级</th></tr></thead>
-                <tbody>${rows.join("") || '<tr><td colspan="2" class="muted">暂无结构化要求</td></tr>'}</tbody>
+                <thead><tr><th>要求</th><th>匹配度</th><th>简历证据</th></tr></thead>
+                <tbody>${rows.join("") || '<tr><td colspan="3" class="muted">暂无匹配详情</td></tr>'}</tbody>
               </table>
             </div>
           </section>

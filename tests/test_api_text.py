@@ -1,9 +1,70 @@
+"""Integration tests for the analyze endpoint with pasted text."""
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 
-def test_analyze_endpoint_with_pasted_resume_text():
+# ---------------------------------------------------------------------------
+# Fake LLM client — returns appropriate responses for each extraction step
+# ---------------------------------------------------------------------------
+
+
+_FAKE_RESUME_RESPONSE = {
+    "skills": {"hard": ["Python", "FastAPI", "Redis"], "soft": ["沟通能力"]},
+    "experience_years": {"total": 2, "backend": 2},
+    "projects": [{"name": "求职分析系统", "tech": ["FastAPI", "Redis"], "desc": "RAG检索系统"}],
+    "education": {"degree": "本科", "major": "计算机科学", "school": "XX大学"},
+    "certifications": [],
+}
+
+_FAKE_JD_RESPONSE = {
+    "requirements": [
+        {"name": "Python", "category": "skill", "level": "required", "description": "熟悉Python"},
+        {"name": "FastAPI", "category": "skill", "level": "required", "description": "有Web框架经验"},
+        {"name": "Redis", "category": "skill", "level": "preferred", "description": "了解缓存"},
+        {"name": "Docker", "category": "skill", "level": "preferred", "description": "容器部署"},
+    ]
+}
+
+_FAKE_SUGGESTION_RESPONSE = {
+    "summary": "匹配度较高，后端技术栈基本匹配。",
+    "resume_rewrites": [
+        {"before": "做过Python项目", "after": "使用Python FastAPI开发高性能后端服务", "reason": "更具体"},
+    ],
+    "interview_questions": [
+        {"question": "请介绍Redis缓存策略", "focus": "缓存设计", "difficulty": "medium"},
+    ],
+}
+
+
+class FakeLLMClient:
+    """Fake LLM client that returns different responses based on prompt content."""
+
+    async def analyze(self, system_prompt: str, user_prompt: str) -> dict:
+        if "简历" in user_prompt and "提取" in user_prompt:
+            return _FAKE_RESUME_RESPONSE
+        if "职位描述" in user_prompt or "JD" in user_prompt:
+            return _FAKE_JD_RESPONSE
+        if "匹配分析结果" in user_prompt or "建议" in user_prompt:
+            return _FAKE_SUGGESTION_RESPONSE
+        return _FAKE_RESUME_RESPONSE
+
+
+def _mock_batch_embedding_similarity(query: str, candidates: list[str]) -> list[float]:
+    """Mock embedding: always returns 0.0 (no match). Tests rely on synonym matching only."""
+    return [0.0] * len(candidates)
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+def test_analyze_endpoint_with_pasted_resume_text(monkeypatch):
+    monkeypatch.setattr("app.services.jobfit.get_llm_client", lambda: FakeLLMClient())
+    monkeypatch.setattr("app.services.matcher._batch_embedding_similarity", _mock_batch_embedding_similarity)
+
     client = TestClient(app)
     response = client.post(
         "/jobfit/analyze",
@@ -22,65 +83,60 @@ def test_analyze_endpoint_with_pasted_resume_text():
     assert response.status_code == 200
     payload = response.json()
     assert payload["match_score"] >= 0
-    assert payload["evidence"]
     assert "score_breakdown" in payload
-    assert "match_score" in payload["score_breakdown"]
     assert "core_requirements" in payload
     assert "risk_items" in payload
+    assert payload["fallback_used"] is False
 
 
-def test_llm_ratios_drive_score(monkeypatch):
-    """LLM's per-requirement evidence_ratio drives the final score via validator."""
-
-    class FakeLLMClient:
-        async def analyze(self, system_prompt: str, user_prompt: str):
-            return {
-                "match_score": 76,
-                "bonus_score": 10,
-                "extra_score": 5,
-                "requirements": [
-                    {"name": "Python 基础", "priority": "core", "evidence_ratio": 0.9, "confidence": 0.85, "reasoning": "strong Python", "evidence_quote": "Python"},
-                    {"name": "Python Web框架", "priority": "core", "evidence_ratio": 0.8, "confidence": 0.8, "reasoning": "FastAPI project", "evidence_quote": "FastAPI"},
-                    {"name": "MySQL/SQL", "priority": "core", "evidence_ratio": 0.7, "confidence": 0.75, "reasoning": "MySQL usage", "evidence_quote": "MySQL"},
-                    {"name": "接口开发能力", "priority": "core", "evidence_ratio": 0.85, "confidence": 0.9, "reasoning": "RESTful API", "evidence_quote": "RESTful"},
-                ],
-                "summary": "较强的后端匹配。",
-                "gaps": [],
-                "resume_rewrites": [],
-                "interview_questions": [],
-            }
-
+def test_match_score_reflects_skills(monkeypatch):
+    """Match score should be driven by program matching, not LLM."""
     monkeypatch.setattr("app.services.jobfit.get_llm_client", lambda: FakeLLMClient())
+    monkeypatch.setattr("app.services.matcher._batch_embedding_similarity", _mock_batch_embedding_similarity)
 
     client = TestClient(app)
     response = client.post(
         "/jobfit/analyze",
         data={
-            "resume_text": (
-                "我使用 Python、FastAPI、MySQL 和 SQLAlchemy 开发博客后端项目，"
-                "完成用户、文章、评论 RESTful API 和 CRUD 接口。"
-            ),
-            "jd_text": (
-                "掌握 Python 基础语法，了解 Python Web 框架 Django/Flask/FastAPI，"
-                "熟悉 MySQL 和 SQL，能够参与后端接口开发。"
-            ),
+            "resume_text": "我使用 Python 和 FastAPI 开发过后端服务，有 Redis 缓存使用经验。",
+            "jd_text": "要求熟悉 Python、FastAPI、Redis、Docker 容器化部署经验。",
         },
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["fallback_used"] is False
-    # LLM outputs match_score=76 directly; validator only clamps
-    assert payload["match_score"] >= 60
-    assert payload["score_breakdown"]["core_matched"] > 0
+    # Python + FastAPI + Redis matched via synonym, Docker not in resume
+    assert payload["match_score"] > 0
+    assert len(payload["matched_strengths"]) > 0
 
 
 def test_analyze_endpoint_requires_resume_text_or_file():
     client = TestClient(app)
     response = client.post(
         "/jobfit/analyze",
-        data={"jd_text": "要求熟悉 Python FastAPI Redis，并了解 RAG 和 Agent。"},
+        data={"jd_text": "要求熟悉 Python FastAPI Redis，并了解 RAG 和 Agent 技术。"},
     )
 
     assert response.status_code == 400
     assert "Provide a resume file or paste resume text" in response.json()["detail"]
+
+
+def test_suggestions_populated(monkeypatch):
+    """LLM suggestions (rewrites, questions) should be in the response."""
+    monkeypatch.setattr("app.services.jobfit.get_llm_client", lambda: FakeLLMClient())
+    monkeypatch.setattr("app.services.matcher._batch_embedding_similarity", _mock_batch_embedding_similarity)
+
+    client = TestClient(app)
+    response = client.post(
+        "/jobfit/analyze",
+        data={
+            "resume_text": "我使用 Python 和 FastAPI 开发过后端服务项目，有 Redis 缓存经验。",
+            "jd_text": "要求熟悉 Python、FastAPI、Redis、Docker 容器化部署经验。",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["resume_rewrites"]) > 0
+    assert len(payload["interview_questions"]) > 0
+    assert payload["summary"] != ""

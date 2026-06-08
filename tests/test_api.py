@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_analyze_endpoint_with_text_resume():
+def test_analyze_endpoint_with_file_resume(client=None):
+    """Test file upload still works end-to-end.
+
+    NOTE: This test requires a running LLM API (DEEPSEEK_API_KEY set).
+    Skip in CI if no API key.
+    """
     client = TestClient(app)
     resume_path = Path("samples/resume.txt")
     jd_text = Path("samples/jd_ai_app.txt").read_text(encoding="utf-8")
@@ -22,4 +27,3 @@ def test_analyze_endpoint_with_text_resume():
     assert payload["match_score"] >= 0
     assert isinstance(payload["fallback_used"], bool)
     assert payload["model_used"]
-    assert payload["evidence"]

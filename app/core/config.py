@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     deepseek_api_key: str | None = Field(default=None, alias="DEEPSEEK_API_KEY")
     deepseek_base_url: str = Field(default="https://api.deepseek.com", alias="DEEPSEEK_BASE_URL")
     deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
-    llm_timeout_seconds: int = Field(default=45, alias="LLM_TIMEOUT_SECONDS")
-    max_context_chars: int = Field(default=9000, alias="MAX_CONTEXT_CHARS")
+    llm_timeout_seconds: int = Field(default=60, alias="LLM_TIMEOUT_SECONDS")
+    embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5", alias="EMBEDDING_MODEL")
 
     model_config = SettingsConfigDict(
         env_file=".env",
