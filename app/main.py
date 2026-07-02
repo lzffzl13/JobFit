@@ -5,12 +5,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.jobfit import router as jobfit_router
+from app.api.resume_agent import router as resume_agent_router
 from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 app = FastAPI(title=settings.app_name)
 app.include_router(jobfit_router)
+app.include_router(resume_agent_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

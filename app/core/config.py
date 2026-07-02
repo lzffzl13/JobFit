@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
     llm_timeout_seconds: int = Field(default=60, alias="LLM_TIMEOUT_SECONDS")
     embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5", alias="EMBEDDING_MODEL")
+    resume_agent_db_path: str = Field(default=".data/resume_agent.db", alias="RESUME_AGENT_DB_PATH")
 
     model_config = SettingsConfigDict(
         env_file=".env",

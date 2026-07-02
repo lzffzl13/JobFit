@@ -1,40 +1,102 @@
 # JobFit Agent 开发进度
 
-> 记录项目开发进度、关键决策和后续方向。
+> 记录项目当前完成情况和后续开发方向。
 
 ## 当前状态
 
-- 项目定位：AI-first 简历-JD 匹配分析系统
-- 架构：LLM 做所有判断，代码只做管道编排和校验
-- 核心流程：chunk → RAG 检索 → LLM 分析 → validate → 输出
-- LLM 失败直接 503，无 fallback/规则引擎
+- 项目类型：简历分析与面试辅助项目
+- 当前版本：V3
+- 当前核心能力：
+  - 简历结构化提取
+  - JD 要求提取
+  - 程序化匹配与打分
+  - 可解释的逐条 requirement 分析
+  - 简历优化建议
+  - 面试问题生成
+  - Resume Agent V1 会话骨架
+
+## 当前架构
+
+当前采用混合方案：
+
+1. LLM 提取简历结构化信息
+2. LLM 提取 JD 结构化要求
+3. 程序匹配引擎做确定性计算
+4. LLM 基于匹配结果生成建议和面试问题
+
+设计重点：
+
+- 非结构化文本交给 LLM 处理
+- 匹配和打分交给程序处理
+- 尽量保留结果的稳定性和可解释性
 
 ## 已完成
 
-### 架构重构（2026-06-03）
-
-从规则引擎架构重构为 AI-first 架构：
-
-- 删除 fallback.py（1000+ 行规则引擎）、jd_parser.py、resume_evidence.py、scoring.py、scoring_policy.py、jd_strategies/
-- LLM 直接输出 match_score / bonus_score / extra_score
-- validator.py 只做 clamp + confidence 警告 + 命中计数
-- normalize_llm_payload 防御性解析 LLM 输出（字段别名、类型容错、缺失处理）
-- llm_clients/ 可插拔设计（factory + deepseek 实现 + openai 占位）
-
-### 基础功能
+### 核心功能
 
 - FastAPI 后端 + `/jobfit/analyze` 接口
 - 简历文本粘贴 + PDF/DOCX/TXT/Markdown 文件上传
-- RAG 检索：BGE Embedding + ChromaDB 向量检索
-- DeepSeek Chat API 集成
-- 响应式前端（单页报告）
+- LLM 简历提取与 JD 提取
+- 程序化匹配引擎（同义词表 + BGE Embedding）
+- 风险项 / 缺口 / 分维度得分输出
+- 逐条 requirement 分析（状态 / 证据 / explanation / suggestion）
+- 分析总览与结构化 risk 结果
+- 单页报告页面
+- Resume Agent V1 基础接口：
+  - 创建会话
+  - 继续对话 / 补充信息
+  - 采纳改写建议
+
+### 当前新增能力说明
+
+#### 1. 分析结果增强
+
+- API 现在会返回更完整的分析结果，不只是总分和 gap
+- 已支持：
+  - `requirement_analysis`
+  - `analysis_overview`
+  - `risk_details`
+- 可区分：
+  - `strong_match`
+  - `partial_match`
+  - `gap`
+- 已修正一处误匹配问题：避免把生态词错误互相命中（如 `FastAPI` 被 `Python` 误判命中）
+
+#### 2. Resume Agent V1（第一轮骨架）
+
+- 已完成状态化对话骨架，当前定位为：
+  - 不直接改简历本体
+  - 先做审查、追问、建议、用户选择
+- 当前已具备：
+  - `POST /resume-agent/sessions`
+  - `GET /resume-agent/sessions/{id}`
+  - `POST /resume-agent/sessions/{id}/messages`
+  - `POST /resume-agent/sessions/{id}/decisions`
+- 当前状态流转：
+  - `intake`
+  - `needs_clarification`
+  - `awaiting_user_choice`
+  - `completed`
+- 当前已实现：
+  - SQLite 会话持久化
+  - 用户补充信息记录
+  - 基于分析结果的规则化审查
+  - 候选改写建议生成
+
+### 工程能力
+
+- 严格 JSON 输出约束
+- 自动重试与解析容错
+- 字段兜底与 schema 校验
+- LLM provider 抽象（DeepSeek 已实现，OpenAI 预留）
 
 ### 测试
 
-- test_validator.py（9 个）— clamp、计数、confidence 警告、边界
-- test_llm_normalizer.py（10 个）— 字段别名、缺失、类型容错
-- test_retriever.py（2 个）— 分块与检索
-- test_api_text.py — 集成测试 + mock LLM 测试
+- `test_matcher.py`
+- `test_llm_extractors.py`
+- `test_api_text.py`
+- `test_resume_agent_api.py`
+- 当前测试状态：`60 passed`
 
 ## 当前运行
 
@@ -45,6 +107,117 @@ uvicorn app.main:app --reload --port 9000
 - Web：http://127.0.0.1:9000
 - API 文档：http://127.0.0.1:9000/docs
 
-## 后续优化
+## 后续开发方向
 
-见 README.md「🗺️ 后续优化」。
+### 优先继续补强
+
+- 简历优化模块
+- Resume Agent 审查 / 追问 / 提案质量
+- 模拟面试模块
+- 匹配解释和风险说明
+- 历史记录与结果对比
+
+### 后续可扩展
+
+- 面试复盘
+- 多轮交互
+- 投递记录
+- 更完整的求职平台能力
+
+## 对话备忘（本地）
+
+> 这一节主要给自己和后续 AI 对话看，不作为正式项目说明的一部分。
+
+### 当前目标
+
+- 这个项目的主要用途是 **求职展示**，不是优先做上线产品
+- 重点不是先把平台壳子做完整，而是先把 **AI 相关的核心能力做出来**
+- 之后仍然可以继续升级成更完整的求职平台，但这不是当前最高优先级
+
+### 当前取舍
+
+- 语言和前端框架不是当前最关键的问题
+- 现阶段更看重：项目里能不能把 AI 的价值讲清楚、做出来、演示出来
+- 前端可以先够用，后面再优化
+- 平台化方向保留，但先后移
+
+### 项目主线
+
+当前项目主线已经明确为：
+
+1. 简历解析
+2. JD 解析
+3. 匹配分析
+4. 简历优化
+5. 模拟面试
+
+也就是说，项目不再只是“分析一次”的工具，而是继续往“分析 + 执行”走。
+
+### 两个优先模块
+
+当前最重要的两个模块：
+
+#### 1. Resume Agent
+
+目标：
+
+- 基于 JD、匹配分析结果和用户补充信息做多轮对话式简历优化
+- 先审查、追问、给建议，再由用户决定是否采用
+- 后续再升级到更适合目标岗位的定制版内容输出
+
+约束：
+
+- 不能编造经历
+- 只能基于真实内容做改写、重组、强调
+- 选择权和补充数据来自用户，不由 Agent 自行决定
+
+#### 2. Interview Agent
+
+目标：
+
+- 基于简历、JD 和匹配薄弱点生成模拟面试问题
+- 根据用户回答继续追问
+- 给出回答评估和复盘建议
+
+重点：
+
+- 不只是静态题库
+- 要体现动态追问和复盘能力
+
+### 当前对 README / 文档的要求
+
+- README 应该写成“正常项目介绍”
+- 不要写太多“当前我的想法”“现阶段我打算先做什么”这种过程性表述
+- 对外描述应该是：
+  - 项目是什么
+  - 现在能做什么
+  - 架构是什么
+  - 后续可以往什么方向扩展
+
+### 当前技术策略
+
+- 先不被技术栈牵着走
+- 现在更重要的是把 AI 部分做深
+- TS / 前端框架可以以后再补，不作为当前开发阻塞项
+- Java 继续作为求职能力线推进，但当前项目本身优先服务 AI 应用展示
+
+### 面试表达重点
+
+后续项目在面试里应该重点讲这些：
+
+- AI 如何解析简历和 JD
+- 为什么匹配和打分要保留程序化逻辑
+- AI 输出如何进入简历优化和模拟面试
+- 如何控制结构化输出、容错、重试、可解释性
+- 为什么这个项目不只是“接了个模型接口”
+
+### 下一步实际开发顺序
+
+建议顺序：
+
+1. 增强简历 / JD 分析结果
+2. 做 Resume Agent V1 骨架
+3. 增强 Resume Agent 的追问和提案质量
+4. 做 Interview Agent
+5. 补复盘与历史记录
+6. 之后再考虑更完整的平台化能力
