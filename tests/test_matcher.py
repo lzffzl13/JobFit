@@ -13,6 +13,7 @@ from app.schemas.jobfit import (
 from app.services.matcher import (
     _calculate_breakdown,
     _embedding_match,
+    _is_gap_detail,
     _match_education,
     _match_experience,
     _match_skill,
@@ -83,6 +84,10 @@ class TestSynonymMatch:
         # Resume has "Redis", JD asks for "redis" via synonym table
         matched, evidence, method = _synonym_match("redis", ["缓存技术", "Redis"])
         assert matched is True
+
+    def test_reverse_synonym_does_not_cross_match_ecosystem_terms(self):
+        matched, _, _ = _synonym_match("FastAPI", ["Python"])
+        assert matched is False
 
     def test_no_match(self):
         matched, _, _ = _synonym_match("Rust", ["Python", "Java"])
@@ -160,6 +165,7 @@ class TestMatchExperience:
     def test_no_experience(self):
         detail = _match_experience("后端开发", "3年经验", {})
         assert detail.matched is False
+        assert _is_gap_detail(detail) is True
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +244,10 @@ class TestCalculateMatch:
         assert 0 < result.total_score < 100
         assert len(result.matched) >= 1
         assert len(result.gaps) >= 1
+        analyses = {item.requirement: item for item in result.requirement_analyses}
+        assert analyses["Python"].status == "strong_match"
+        assert analyses["Redis"].status == "gap"
+        assert analyses["后端经验"].status == "partial_match"
 
     def test_empty_resume(self):
         resume = _make_resume()
@@ -287,6 +297,8 @@ class TestCalculateMatch:
         result = calculate_match(resume, jd)
         assert len(result.risk_items) >= 1
         assert "Rust" in result.risk_items[0]
+        assert result.risk_details[0].requirement == "Rust"
+        assert result.risk_details[0].severity == "high"
 
     def test_alternatives_in_matching(self):
         resume = _make_resume(hard=["Memcached"])
@@ -296,3 +308,28 @@ class TestCalculateMatch:
         result = calculate_match(resume, jd)
         assert len(result.matched) == 1
         assert result.matched[0].matched is True
+
+    def test_requirement_analysis_and_overview_populated(self, monkeypatch):
+        monkeypatch.setattr(
+            "app.services.matcher._batch_embedding_similarity",
+            lambda query, candidates: [0.0] * len(candidates),
+        )
+        resume = _make_resume(
+            hard=["Python", "Redis"],
+            exp={"total": 2},
+            degree="本科",
+            major="计算机科学",
+        )
+        jd = _make_jd([
+            {"name": "Python", "category": "skill", "level": "required"},
+            {"name": "FastAPI", "category": "skill", "level": "required"},
+            {"name": "后端经验", "category": "experience", "level": "required", "description": "3年"},
+            {"name": "学历要求", "category": "education", "level": "required", "description": "本科"},
+        ])
+        result = calculate_match(resume, jd)
+
+        assert len(result.requirement_analyses) == 4
+        assert result.analysis_overview.strong_match_count >= 1
+        assert result.analysis_overview.partial_match_count >= 1
+        assert result.analysis_overview.gap_count >= 1
+        assert all(item.explanation for item in result.requirement_analyses)

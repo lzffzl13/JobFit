@@ -88,6 +88,41 @@ class GapDetail(BaseModel):
     suggestion: str = ""                # program-generated hint
 
 
+class RequirementAnalysis(BaseModel):
+    """Detailed analysis for a single JD requirement."""
+
+    requirement: str
+    category: str = "skill"
+    level: str = "required"
+    matched: bool = False
+    score: int = Field(ge=0, le=100, default=0)
+    status: str = "gap"                 # strong_match / partial_match / gap
+    evidence: str = ""
+    method: str = ""
+    explanation: str = ""
+    suggestion: str = ""
+
+
+class AnalysisOverview(BaseModel):
+    """High-level summary of requirement analysis results."""
+
+    strong_match_count: int = 0
+    partial_match_count: int = 0
+    gap_count: int = 0
+    high_risk_count: int = 0
+
+
+class RiskItemDetail(BaseModel):
+    """Structured risk item for weak core requirements."""
+
+    requirement: str
+    category: str = "skill"
+    level: str = "required"
+    score: int = Field(ge=0, le=100, default=0)
+    severity: str = "medium"            # high / medium / low
+    reason: str = ""
+
+
 class ScoreBreakdown(BaseModel):
     """Weighted score breakdown by category."""
 
@@ -109,9 +144,12 @@ class MatchResult(BaseModel):
     score_breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
     matched: list[MatchDetail] = Field(default_factory=list)
     gaps: list[GapDetail] = Field(default_factory=list)
+    requirement_analyses: list[RequirementAnalysis] = Field(default_factory=list)
+    analysis_overview: AnalysisOverview = Field(default_factory=AnalysisOverview)
     core_requirements: list[str] = Field(default_factory=list)
     bonus_requirements: list[str] = Field(default_factory=list)
     risk_items: list[str] = Field(default_factory=list)
+    risk_details: list[RiskItemDetail] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -164,8 +202,11 @@ class JobFitAnalysis(BaseModel):
     interview_questions: list[InterviewQuestion] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     score_breakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
+    requirement_analysis: list[RequirementAnalysis] = Field(default_factory=list)
+    analysis_overview: AnalysisOverview = Field(default_factory=AnalysisOverview)
     core_requirements: list[str] = Field(default_factory=list)
     bonus_requirements: list[str] = Field(default_factory=list)
     risk_items: list[str] = Field(default_factory=list)
+    risk_details: list[RiskItemDetail] = Field(default_factory=list)
     model_used: str = ""
     fallback_used: bool = False

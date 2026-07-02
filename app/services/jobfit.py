@@ -94,9 +94,12 @@ async def analyze_job_fit(resume_text: str, jd_text: str) -> JobFitAnalysis:
         ],
         evidence=[],  # No RAG evidence anymore
         score_breakdown=match_result.score_breakdown,
+        requirement_analysis=match_result.requirement_analyses,
+        analysis_overview=match_result.analysis_overview,
         core_requirements=match_result.core_requirements,
         bonus_requirements=match_result.bonus_requirements,
         risk_items=match_result.risk_items,
+        risk_details=match_result.risk_details,
         model_used=settings.deepseek_model,
         fallback_used=False,
     )

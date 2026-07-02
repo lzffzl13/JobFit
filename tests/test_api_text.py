@@ -86,6 +86,9 @@ def test_analyze_endpoint_with_pasted_resume_text(monkeypatch):
     assert "score_breakdown" in payload
     assert "core_requirements" in payload
     assert "risk_items" in payload
+    assert "requirement_analysis" in payload
+    assert "analysis_overview" in payload
+    assert "risk_details" in payload
     assert payload["fallback_used"] is False
 
 
@@ -108,6 +111,10 @@ def test_match_score_reflects_skills(monkeypatch):
     # Python + FastAPI + Redis matched via synonym, Docker not in resume
     assert payload["match_score"] > 0
     assert len(payload["matched_strengths"]) > 0
+    analyses = {item["requirement"]: item for item in payload["requirement_analysis"]}
+    assert analyses["Python"]["status"] == "strong_match"
+    assert analyses["Docker"]["status"] == "gap"
+    assert analyses["Docker"]["suggestion"] != ""
 
 
 def test_analyze_endpoint_requires_resume_text_or_file():
@@ -140,3 +147,5 @@ def test_suggestions_populated(monkeypatch):
     assert len(payload["resume_rewrites"]) > 0
     assert len(payload["interview_questions"]) > 0
     assert payload["summary"] != ""
+    assert isinstance(payload["analysis_overview"]["strong_match_count"], int)
+    assert isinstance(payload["risk_details"], list)

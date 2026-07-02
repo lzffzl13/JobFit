@@ -18,10 +18,13 @@ from sentence_transformers.util import cos_sim
 
 from app.core.config import settings
 from app.schemas.jobfit import (
+    AnalysisOverview,
     GapDetail,
     MatchDetail,
     MatchResult,
+    RequirementAnalysis,
     ResumeProfile,
+    RiskItemDetail,
     ScoreBreakdown,
     JDProfile,
 )
@@ -33,6 +36,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 EMBEDDING_SIMILARITY_THRESHOLD = 0.8
+STRONG_MATCH_THRESHOLD = 0.85
 
 # Weights by requirement level
 LEVEL_WEIGHTS: dict[str, int] = {
@@ -207,7 +211,7 @@ def _synonym_match(requirement_name: str, resume_items: list[str]) -> tuple[bool
         synonyms_lower = [s.lower() for s in synonyms]
         if req_lower in synonyms_lower:
             for i, item in enumerate(resume_lower):
-                if item == key or item in synonyms_lower:
+                if item == key:
                     return True, resume_items[i], "synonym"
 
     return False, "", ""
@@ -448,24 +452,33 @@ def calculate_match(resume: ResumeProfile, jd: JDProfile) -> MatchResult:
             suggestion=_gap_suggestion(d),
         )
         for d in match_details
-        if not d.matched and d.level in ("required", "preferred")
+        if _is_gap_detail(d) and d.level in ("required", "preferred")
     ]
 
+    requirement_analyses = [_build_requirement_analysis(d) for d in match_details]
+
     # Risk items: required skills with low match
-    risk_items = [
-        f"{d.requirement}: {d.match_score:.0%}"
+    risk_details = [
+        _build_risk_detail(d)
         for d in match_details
-        if d.level == "required" and d.match_score < 0.85
+        if d.level == "required" and d.match_score < STRONG_MATCH_THRESHOLD
     ][:6]
+    risk_items = [
+        f"{item.requirement}: {item.score}%"
+        for item in risk_details
+    ]
 
     return MatchResult(
         total_score=breakdown.total_score,
         score_breakdown=breakdown,
         matched=[d for d in match_details if d.matched],
         gaps=gaps,
+        requirement_analyses=requirement_analyses,
+        analysis_overview=_build_analysis_overview(requirement_analyses, risk_details),
         core_requirements=[d.requirement for d in match_details if d.level == "required"],
         bonus_requirements=[d.requirement for d in match_details if d.level != "required"],
         risk_items=risk_items,
+        risk_details=risk_details,
     )
 
 
@@ -520,11 +533,124 @@ def _calculate_breakdown(details: list[MatchDetail]) -> ScoreBreakdown:
 def _gap_suggestion(detail: MatchDetail) -> str:
     """Generate a hint for an unmatched requirement."""
     if detail.category == "skill":
+        if detail.evidence:
+            return f"补充 {detail.requirement} 的直接使用场景，并把相关项目结果写清楚"
         return f"补充 {detail.requirement} 相关的项目经历或学习经验"
     if detail.category == "experience":
+        if detail.evidence:
+            return f"突出与 {detail.requirement} 对应的年限、职责范围和业务场景"
         return f"补充 {detail.requirement} 相关的工作经历"
     if detail.category == "project":
+        if detail.evidence:
+            return f"强化项目中与 {detail.requirement} 直接相关的职责、技术和结果"
         return f"补充与 {detail.requirement} 相关的项目描述"
     if detail.category == "education":
+        if detail.evidence:
+            return "明确学历层次、专业名称和学校信息"
         return f"学历要求: {detail.requirement}"
+    if detail.category == "soft":
+        return f"补充能体现 {detail.requirement} 的具体案例或协作结果"
     return f"补充 {detail.requirement} 相关经历"
+
+
+def _classify_status(detail: MatchDetail) -> str:
+    """Classify a requirement match into strong/partial/gap."""
+    if detail.match_score >= STRONG_MATCH_THRESHOLD and detail.matched:
+        return "strong_match"
+    if detail.match_score > 0 or detail.matched:
+        return "partial_match"
+    return "gap"
+
+
+def _is_gap_detail(detail: MatchDetail) -> bool:
+    """Whether a requirement should appear in gap output."""
+    return _classify_status(detail) != "strong_match"
+
+
+def _build_requirement_analysis(detail: MatchDetail) -> RequirementAnalysis:
+    """Convert a raw match detail into a richer requirement analysis item."""
+    return RequirementAnalysis(
+        requirement=detail.requirement,
+        category=detail.category,
+        level=detail.level,
+        matched=detail.matched,
+        score=int(round(detail.match_score * 100)),
+        status=_classify_status(detail),
+        evidence=detail.evidence,
+        method=detail.method,
+        explanation=_build_explanation(detail),
+        suggestion=_gap_suggestion(detail) if _classify_status(detail) != "strong_match" else "",
+    )
+
+
+def _build_explanation(detail: MatchDetail) -> str:
+    """Generate a human-readable explanation for a requirement match."""
+    status = _classify_status(detail)
+
+    if detail.category == "experience":
+        if status == "strong_match":
+            return f"相关经验满足要求，当前证据为 {detail.evidence or '已识别到相关经验'}。"
+        if status == "partial_match":
+            return f"已有部分相关经验，但覆盖度不足，当前证据为 {detail.evidence or '经验信息有限'}。"
+        return f"未找到与 {detail.requirement} 对应的明确经验年限或场景。"
+
+    if detail.category == "education":
+        if status == "strong_match":
+            return f"学历或专业要求已覆盖，匹配证据为 {detail.evidence or '教育背景已命中'}。"
+        if status == "partial_match":
+            return f"教育背景与要求有一定相关性，但仍存在差距，当前证据为 {detail.evidence or '教育信息有限'}。"
+        return f"当前教育信息不足以支撑 {detail.requirement} 要求。"
+
+    if detail.category == "project":
+        if status == "strong_match":
+            return f"项目经历中存在直接相关内容，证据为 {detail.evidence or '相关项目已命中'}。"
+        if status == "partial_match":
+            return f"项目经历与该要求有一定关联，但缺少更直接的证明，当前证据为 {detail.evidence or '项目关联度有限'}。"
+        return f"项目经历中缺少与 {detail.requirement} 直接相关的内容。"
+
+    if detail.category == "soft":
+        if status == "strong_match":
+            return f"软技能要求已有明确佐证，证据为 {detail.evidence or '软技能已命中'}。"
+        if status == "partial_match":
+            return f"检测到一定相关软技能，但表达还不够具体，当前证据为 {detail.evidence or '软技能证据有限'}。"
+        return f"缺少能体现 {detail.requirement} 的明确案例。"
+
+    if status == "strong_match":
+        return f"已找到与 {detail.requirement} 直接相关的证据，匹配方式为 {detail.method or '规则匹配'}。"
+    if status == "partial_match":
+        if detail.evidence:
+            return f"与 {detail.requirement} 有一定相关性，但证据强度不足，当前命中 {detail.evidence}。"
+        return f"与 {detail.requirement} 存在部分相关性，但缺少直接证据。"
+    return f"当前简历中未找到 {detail.requirement} 的直接证据。"
+
+
+def _build_risk_detail(detail: MatchDetail) -> RiskItemDetail:
+    """Build structured risk detail for weak required requirements."""
+    score = int(round(detail.match_score * 100))
+    if score < 40:
+        severity = "high"
+    elif score < 70:
+        severity = "medium"
+    else:
+        severity = "low"
+
+    return RiskItemDetail(
+        requirement=detail.requirement,
+        category=detail.category,
+        level=detail.level,
+        score=score,
+        severity=severity,
+        reason=_build_explanation(detail),
+    )
+
+
+def _build_analysis_overview(
+    requirement_analyses: list[RequirementAnalysis], risk_details: list[RiskItemDetail]
+) -> AnalysisOverview:
+    """Aggregate requirement analyses into a compact overview."""
+    return AnalysisOverview(
+        strong_match_count=sum(1 for item in requirement_analyses if item.status == "strong_match"),
+        partial_match_count=sum(1 for item in requirement_analyses if item.status == "partial_match"),
+        gap_count=sum(1 for item in requirement_analyses if item.status == "gap"),
+        high_risk_count=sum(1 for item in risk_details if item.severity == "high"),
+    )
