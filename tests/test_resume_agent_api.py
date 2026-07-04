@@ -77,6 +77,16 @@ def test_create_resume_agent_session(monkeypatch, tmp_path):
     assert payload["state"] == "needs_clarification"
     assert len(payload["pending_questions"]) == 1
     assert len(payload["proposals"]) == 1
+    review_by_requirement = {item["requirement"]: item for item in payload["review_items"]}
+    assert review_by_requirement["Python"]["write_policy"] == "safe_rewrite"
+    assert review_by_requirement["Python"]["confidence"] >= 0.8
+    assert review_by_requirement["Docker"]["write_policy"] == "ask_for_facts"
+    assert review_by_requirement["Docker"]["missing_info"]
+    assert payload["pending_questions"][0]["expected_evidence"]
+    assert "真实" in payload["pending_questions"][0]["question"]
+    assert payload["proposals"][0]["confidence"] >= 0.8
+    assert payload["proposals"][0]["tone"] == "strong"
+    assert payload["proposals"][0]["safety_notes"]
 
 
 def test_resume_agent_message_updates_session(monkeypatch, tmp_path):
@@ -116,7 +126,11 @@ def test_resume_agent_message_updates_session(monkeypatch, tmp_path):
     payload = response.json()
     assert payload["state"] == "awaiting_user_choice"
     assert len(payload["pending_questions"]) == 0
-    assert any(item["requirement"] == "Docker" for item in payload["proposals"])
+    docker_proposal = next(item for item in payload["proposals"] if item["requirement"] == "Docker")
+    assert docker_proposal["source_section"] == "skills_or_projects"
+    assert docker_proposal["tone"] == "conservative"
+    assert "Docker" in docker_proposal["after"]
+    assert docker_proposal["safety_notes"]
 
 
 def test_resume_agent_decision_marks_completion(monkeypatch, tmp_path):

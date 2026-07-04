@@ -37,11 +37,37 @@ class ReviewDisposition(StrEnum):
     DO_NOT_WRITE = "do_not_write"
 
 
+class WritePolicy(StrEnum):
+    SAFE_REWRITE = "safe_rewrite"
+    ASK_FOR_FACTS = "ask_for_facts"
+    DO_NOT_CLAIM = "do_not_claim"
+
+
+class EvidenceSource(StrEnum):
+    RESUME = "resume"
+    USER = "user"
+    RESUME_AND_USER = "resume_and_user"
+    NONE = "none"
+
+
+class RiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class ProposalTone(StrEnum):
+    CONSERVATIVE = "conservative"
+    BALANCED = "balanced"
+    STRONG = "strong"
+
+
 class ClarifyingQuestion(BaseModel):
     id: str = Field(default_factory=lambda: f"q_{uuid4().hex[:10]}")
     requirement: str
     question: str
     rationale: str = ""
+    expected_evidence: list[str] = Field(default_factory=list)
     status: str = "pending"
 
 
@@ -62,6 +88,9 @@ class RewriteProposal(BaseModel):
     after: str = ""
     reason: str = ""
     evidence_basis: str = ""
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    tone: ProposalTone = ProposalTone.BALANCED
+    safety_notes: list[str] = Field(default_factory=list)
     needs_user_confirmation: bool = True
     status: ProposalStatus = ProposalStatus.PROPOSED
 
@@ -69,8 +98,16 @@ class RewriteProposal(BaseModel):
 class ReviewItem(BaseModel):
     requirement: str
     disposition: ReviewDisposition
+    write_policy: WritePolicy = WritePolicy.ASK_FOR_FACTS
     reason: str
     evidence: str = ""
+    evidence_source: EvidenceSource = EvidenceSource.NONE
+    confidence: float = Field(default=0, ge=0, le=1)
+    missing_info: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.MEDIUM
+    risk_reason: str = ""
+    recommended_section: str = "experience"
+    suggested_angle: str = ""
     question: ClarifyingQuestion | None = None
 
 
