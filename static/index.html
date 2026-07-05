@@ -4,10 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>JobFit Agent</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Cpath d='M9 17.5 14 22l9-12' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <style>
       :root {
         color-scheme: light;
-        --bg: #f6f8f7;
+        --bg: #f4f7f5;
         --panel: #ffffff;
         --text: #162021;
         --muted: #647172;
@@ -15,11 +16,17 @@
         --accent: #0f766e;
         --accent-dark: #0b5f58;
         --accent-soft: #e8f5f3;
+        --ink: #243735;
+        --blue: #245a8d;
+        --blue-soft: #eaf3fb;
+        --gold: #8b6a15;
+        --gold-soft: #fbf4dc;
         --warn: #a15c07;
         --warn-soft: #fff5df;
         --danger: #b42318;
         --danger-soft: #fff0ee;
         --soft: #f3f7f6;
+        --shadow: 0 14px 34px rgba(22, 32, 33, 0.06);
       }
 
       * {
@@ -104,7 +111,7 @@
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 8px;
-        box-shadow: 0 14px 34px rgba(22, 32, 33, 0.06);
+        box-shadow: var(--shadow);
       }
 
       .input-panel {
@@ -202,6 +209,30 @@
       button:disabled {
         cursor: wait;
         opacity: 0.68;
+      }
+
+      .button-secondary {
+        min-width: 120px;
+        border: 1px solid var(--line);
+        color: var(--ink);
+        background: #fcfefd;
+      }
+
+      .button-secondary:hover {
+        background: var(--soft);
+      }
+
+      .button-ghost {
+        min-width: auto;
+        border: 1px solid transparent;
+        color: var(--accent);
+        background: transparent;
+        padding: 8px 10px;
+      }
+
+      .button-ghost:hover {
+        border-color: var(--line);
+        background: var(--accent-soft);
       }
 
       .report {
@@ -304,6 +335,226 @@
 
       .section-card.wide {
         grid-column: 1 / -1;
+      }
+
+      .agent-card {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 14px;
+        padding: 0;
+        overflow: hidden;
+        border-color: #c9e8e3;
+      }
+
+      .agent-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.55fr);
+        gap: 16px;
+        align-items: center;
+        padding: 16px;
+        background:
+          linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(36, 90, 141, 0.08)),
+          #fcfefd;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .agent-title {
+        display: grid;
+        gap: 7px;
+      }
+
+      .agent-title h3 {
+        font-size: 17px;
+      }
+
+      .agent-status {
+        justify-self: end;
+        display: grid;
+        gap: 8px;
+        min-width: 220px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .status-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+      }
+
+      .agent-body {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .agent-layout {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.35fr);
+        gap: 14px;
+      }
+
+      .agent-column {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+
+      .agent-subpanel {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fcfefd;
+      }
+
+      .agent-subpanel h4 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .agent-kpis {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .agent-kpi {
+        min-height: 66px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .agent-kpi span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .agent-kpi strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 20px;
+      }
+
+      .question-card,
+      .proposal-card {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .question-card {
+        border-left: 4px solid var(--gold);
+      }
+
+      .proposal-card {
+        border-left: 4px solid var(--accent);
+      }
+
+      .proposal-card.accepted {
+        border-left-color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .question-head,
+      .proposal-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        min-height: 24px;
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .chip.strong {
+        border-color: #b8dfd8;
+        background: var(--accent-soft);
+        color: var(--accent-dark);
+      }
+
+      .chip.warn {
+        border-color: #efd28f;
+        background: var(--gold-soft);
+        color: var(--gold);
+      }
+
+      .chip.danger {
+        border-color: #f6c5c0;
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .proposal-copy {
+        display: grid;
+        gap: 8px;
+      }
+
+      .copy-block {
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--soft);
+      }
+
+      .copy-block strong {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .agent-actions,
+      .proposal-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .question-answer {
+        min-height: 92px;
+      }
+
+      .message-list {
+        display: grid;
+        gap: 8px;
+        max-height: 250px;
+        overflow: auto;
+      }
+
+      .message {
+        padding: 9px 10px;
+        border-radius: 7px;
+        background: var(--soft);
+        font-size: 13px;
+      }
+
+      .message.user {
+        background: var(--accent-soft);
       }
 
       .section-card h3 {
@@ -444,6 +695,8 @@
 
       @media (max-width: 980px) {
         .summary-band,
+        .agent-hero,
+        .agent-layout,
         .section-grid,
         .input-grid {
           grid-template-columns: 1fr;
@@ -459,6 +712,10 @@
 
         button {
           width: 100%;
+        }
+
+        .agent-status {
+          justify-self: stretch;
         }
       }
 
@@ -489,6 +746,16 @@
 
         .score strong {
           font-size: 44px;
+        }
+
+        table {
+          min-width: 0;
+        }
+
+        th,
+        td {
+          padding: 9px;
+          font-size: 13px;
         }
       }
     </style>
@@ -553,6 +820,8 @@
       const resumeText = document.querySelector("#resume-text");
       const resumeFile = document.querySelector("#resume");
       const jdText = document.querySelector("#jd");
+      let latestAnalysis = null;
+      let resumeAgentSession = null;
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -583,6 +852,8 @@
           if (!response.ok) {
             throw new Error(payload.detail || "请求失败");
           }
+          latestAnalysis = payload;
+          resumeAgentSession = null;
           render(payload);
           result.scrollIntoView({ behavior: "smooth", block: "start" });
         } catch (error) {
@@ -591,6 +862,21 @@
         } finally {
           button.disabled = false;
           button.textContent = "开始分析";
+        }
+      });
+
+      result.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-agent-action]")?.dataset.agentAction;
+        if (!action) return;
+
+        if (action === "start") {
+          await startResumeAgent(event.target);
+        }
+        if (action === "answer") {
+          await submitAgentAnswers(event.target);
+        }
+        if (action === "accept" || action === "reject") {
+          await submitProposalDecision(event.target, action);
         }
       });
 
@@ -621,6 +907,7 @@
           </div>
 
           <div class="section-grid">
+            ${agentSection()}
             ${pillSection("待补强", data.risk_items || [], "warn")}
             ${matchDetailSection(data.matched_strengths || [])}
             ${listSection("待补强建议", (data.gaps || []).map((x) => ({ title: x.requirement, body: x.suggestion, meta: "" })))}
@@ -628,6 +915,261 @@
             ${listSection("面试问题", (data.interview_questions || []).map((x) => ({ title: x.question, body: x.focus, meta: x.difficulty })))}
           </div>
         `;
+      }
+
+      async function startResumeAgent(trigger) {
+        if (!resumeText.value.trim()) {
+          showAgentNotice("当前前端 Agent 会话需要简历文本。请把简历内容粘贴到左侧文本框后再启动。", "danger");
+          return;
+        }
+        if (!jdText.value.trim()) {
+          showAgentNotice("请先提供岗位 JD。", "danger");
+          return;
+        }
+
+        await withBusy(trigger, "启动中...", async () => {
+          const response = await fetch("/resume-agent/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resume_text: resumeText.value.trim(),
+              jd_text: jdText.value.trim(),
+            }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.detail || "Resume Agent 启动失败");
+          resumeAgentSession = payload;
+          rerenderAgent();
+        });
+      }
+
+      async function submitAgentAnswers(trigger) {
+        if (!resumeAgentSession) return;
+
+        const answers = resumeAgentSession.pending_questions
+          .map((question) => {
+            const textarea = document.querySelector(`[data-question-id="${cssEscape(question.id)}"]`);
+            return {
+              question_id: question.id,
+              requirement: question.requirement,
+              answer: textarea?.value.trim() || "",
+            };
+          })
+          .filter((item) => item.answer);
+
+        if (!answers.length) {
+          showAgentNotice("先回答至少一个问题，我再帮你更新建议。", "warn");
+          return;
+        }
+
+        await withBusy(trigger, "更新中...", async () => {
+          const response = await fetch(`/resume-agent/sessions/${resumeAgentSession.id}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: "用户补充了简历事实。", answers }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.detail || "更新失败");
+          resumeAgentSession = payload;
+          rerenderAgent();
+        });
+      }
+
+      async function submitProposalDecision(trigger, action) {
+        if (!resumeAgentSession) return;
+        const proposalId = trigger.closest("[data-proposal-id]")?.dataset.proposalId;
+        if (!proposalId) return;
+
+        await withBusy(trigger, action === "accept" ? "采纳中..." : "记录中...", async () => {
+          const response = await fetch(`/resume-agent/sessions/${resumeAgentSession.id}/decisions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              proposal_id: proposalId,
+              decision: action === "accept" ? "accepted" : "rejected",
+              note: action === "accept" ? "采纳该候选建议。" : "暂不采纳该候选建议。",
+            }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.detail || "记录选择失败");
+          resumeAgentSession = payload;
+          rerenderAgent();
+        });
+      }
+
+      async function withBusy(buttonEl, label, work) {
+        const original = buttonEl.textContent;
+        buttonEl.disabled = true;
+        buttonEl.textContent = label;
+        try {
+          await work();
+        } catch (error) {
+          showAgentNotice(error.message, "danger");
+        } finally {
+          buttonEl.disabled = false;
+          buttonEl.textContent = original;
+        }
+      }
+
+      function rerenderAgent() {
+        const node = document.querySelector("#resume-agent-panel");
+        if (node) node.outerHTML = agentSection();
+      }
+
+      function showAgentNotice(message, tone = "warn") {
+        const notice = document.querySelector("#agent-notice");
+        if (!notice) return;
+        notice.className = `pill ${tone === "danger" ? "danger" : "warn"}`;
+        notice.textContent = message;
+      }
+
+      function agentSection() {
+        const overview = latestAnalysis?.analysis_overview || {};
+        const session = resumeAgentSession;
+        const stateLabel = session ? stateText(session.state) : "未启动";
+        const questionCount = session?.pending_questions?.length || 0;
+        const proposalCount = session?.proposals?.length || 0;
+        const acceptedCount = (session?.proposals || []).filter((item) => item.status === "accepted").length;
+
+        return `
+          <section id="resume-agent-panel" class="section-card agent-card">
+            <div class="agent-hero">
+              <div class="agent-title">
+                <span class="eyebrow">Resume Agent</span>
+                <h3>把分析结果推进成可确认的简历优化建议</h3>
+                <p class="muted small">${session ? escapeHtml(session.summary || "会话已创建。") : "Agent 会先审查证据，再追问缺失信息，最后给出可选择的候选表达。"}</p>
+              </div>
+              <div class="agent-status">
+                <div class="status-line"><span class="muted">状态</span><span class="chip ${session ? "strong" : ""}">${escapeHtml(stateLabel)}</span></div>
+                <div class="status-line"><span class="muted">强匹配</span><strong>${overview.strong_match_count || 0}</strong></div>
+                <div class="status-line"><span class="muted">待补充</span><strong>${overview.gap_count || 0}</strong></div>
+              </div>
+            </div>
+            <div class="agent-body">
+              <div id="agent-notice" class="pill warn" style="display:${session ? "none" : "inline-flex"}">启动后会创建一次独立的优化会话。</div>
+              ${session ? agentWorkspace(session, questionCount, proposalCount, acceptedCount) : agentStarter()}
+            </div>
+          </section>
+        `;
+      }
+
+      function agentStarter() {
+        return `
+          <div class="agent-actions">
+            <button type="button" data-agent-action="start">启动 Resume Agent</button>
+            <span class="muted small">需要当前文本框里保留简历文本和 JD。</span>
+          </div>
+        `;
+      }
+
+      function agentWorkspace(session, questionCount, proposalCount, acceptedCount) {
+        return `
+          <div class="agent-kpis">
+            ${agentKpi("待回答", questionCount)}
+            ${agentKpi("候选建议", proposalCount)}
+            ${agentKpi("已采纳", acceptedCount)}
+          </div>
+          <div class="agent-layout">
+            <div class="agent-column">
+              ${questionPanel(session.pending_questions || [])}
+              ${messagePanel(session.messages || [])}
+            </div>
+            <div class="agent-column">
+              ${proposalPanel(session.proposals || [])}
+            </div>
+          </div>
+        `;
+      }
+
+      function agentKpi(label, value) {
+        return `<div class="agent-kpi"><span>${label}</span><strong>${value}</strong></div>`;
+      }
+
+      function questionPanel(questions) {
+        const content = questions.length
+          ? questions
+              .map((question) => `
+                <div class="question-card">
+                  <div class="question-head">
+                    <strong>${escapeHtml(question.requirement)}</strong>
+                    <span class="chip warn">需要补充</span>
+                  </div>
+                  <p>${escapeHtml(question.question)}</p>
+                  ${question.expected_evidence?.length ? `<div class="pill-list">${question.expected_evidence.map((x) => `<span class="chip">${escapeHtml(x)}</span>`).join("")}</div>` : ""}
+                  <textarea class="question-answer" data-question-id="${escapeHtml(question.id)}" placeholder="补充真实信息；如果没有做过，也可以直接说明没有。"></textarea>
+                </div>
+              `)
+              .join("")
+          : '<p class="muted small">暂时没有必须追问的问题。</p>';
+        return `
+          <div class="agent-subpanel">
+            <h4>Agent 追问</h4>
+            ${content}
+            ${questions.length ? '<button type="button" data-agent-action="answer">提交补充信息</button>' : ""}
+          </div>
+        `;
+      }
+
+      function proposalPanel(proposals) {
+        const content = proposals.length
+          ? proposals.map(proposalCard).join("")
+          : '<p class="muted small">回答追问后，这里会出现候选改写建议。</p>';
+        return `<div class="agent-subpanel"><h4>候选改写</h4>${content}</div>`;
+      }
+
+      function proposalCard(item) {
+        const toneClass = item.tone === "strong" ? "strong" : item.tone === "conservative" ? "warn" : "";
+        const acceptedClass = item.status === "accepted" ? " accepted" : "";
+        return `
+          <article class="proposal-card${acceptedClass}" data-proposal-id="${escapeHtml(item.id)}">
+            <div class="proposal-head">
+              <strong>${escapeHtml(item.requirement)}</strong>
+              <span class="chip ${toneClass}">${escapeHtml(toneText(item.tone))}</span>
+            </div>
+            <div class="proposal-copy">
+              <div class="copy-block"><strong>原始依据</strong><span>${escapeHtml(item.before || item.evidence_basis || "-")}</span></div>
+              <div class="copy-block"><strong>候选表达</strong><span>${escapeHtml(item.after || "-")}</span></div>
+            </div>
+            <p class="muted small">${escapeHtml(item.reason || "")}</p>
+            ${item.safety_notes?.length ? `<div class="pill-list">${item.safety_notes.map((note) => `<span class="chip warn">${escapeHtml(note)}</span>`).join("")}</div>` : ""}
+            <div class="proposal-actions">
+              <button type="button" data-agent-action="accept" ${item.status === "accepted" ? "disabled" : ""}>采纳</button>
+              <button type="button" class="button-secondary" data-agent-action="reject" ${item.status === "rejected" ? "disabled" : ""}>暂不采纳</button>
+              <span class="muted small">置信度 ${Math.round((item.confidence || 0) * 100)}%</span>
+            </div>
+          </article>
+        `;
+      }
+
+      function messagePanel(messages) {
+        const visible = messages.slice(-5);
+        const content = visible.length
+          ? visible
+              .map((message) => `<div class="message ${message.role === "user" ? "user" : ""}">${escapeHtml(message.content)}</div>`)
+              .join("")
+          : '<p class="muted small">会话消息会显示在这里。</p>';
+        return `<div class="agent-subpanel"><h4>会话记录</h4><div class="message-list">${content}</div></div>`;
+      }
+
+      function stateText(state) {
+        const map = {
+          intake: "准备中",
+          reviewing: "审查中",
+          needs_clarification: "等待补充",
+          proposal_ready: "可生成建议",
+          awaiting_user_choice: "等待选择",
+          completed: "已完成",
+        };
+        return map[state] || state || "未知";
+      }
+
+      function toneText(tone) {
+        const map = {
+          conservative: "保守表达",
+          balanced: "平衡表达",
+          strong: "强化表达",
+        };
+        return map[tone] || tone || "候选";
       }
 
       function metric(label, value) {
@@ -698,6 +1240,11 @@
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#039;");
+      }
+
+      function cssEscape(value) {
+        if (window.CSS && CSS.escape) return CSS.escape(value);
+        return String(value).replace(/["\\]/g, "\\$&");
       }
     </script>
   </body>

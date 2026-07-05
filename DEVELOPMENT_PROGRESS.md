@@ -42,6 +42,7 @@
 - 逐条 requirement 分析（状态 / 证据 / explanation / suggestion）
 - 分析总览与结构化 risk 结果
 - 单页报告页面
+- 报告页内 Resume Agent 前端入口
 - Resume Agent V1 基础接口：
   - 创建会话
   - 继续对话 / 补充信息
@@ -82,6 +83,18 @@
   - 用户补充信息记录
   - 基于分析结果的规则化审查
   - 候选改写建议生成
+  - 报告页中的 Agent 面板入口
+
+#### 3. 当前前端形态提醒
+
+- 当前前端仍然是“先分析，再在结果区启动 Resume Agent”
+- 这个形态可用，但产品感更像“分析报告 + Agent 面板”
+- 后续如果要更像 AI 应用，应改成 **Agent-first 工作台**
+- 建议方向：
+  - 首页主入口从“匹配分析表单”调整为“简历优化 Agent 工作台”
+  - 简历 / JD 输入作为 Agent 的输入上下文
+  - 匹配分析作为 Agent 的依据面板，而不是第一视觉中心
+  - 主流程变成：用户给材料 -> Agent 审查 -> Agent 追问 -> 用户补充 -> Agent 给候选建议
 
 ### 工程能力
 
@@ -113,6 +126,7 @@ uvicorn app.main:app --reload --port 9000
 
 - 简历优化模块
 - Resume Agent 审查 / 追问 / 提案质量
+- Resume Agent-first 前端工作台
 - 模拟面试模块
 - 匹配解释和风险说明
 - 历史记录与结果对比
@@ -218,6 +232,7 @@ uvicorn app.main:app --reload --port 9000
 1. 增强简历 / JD 分析结果
 2. 做 Resume Agent V1 骨架
 3. 增强 Resume Agent 的追问和提案质量
-4. 做 Interview Agent
-5. 补复盘与历史记录
-6. 之后再考虑更完整的平台化能力
+4. 将前端改成 Agent-first 工作台
+5. 做 Interview Agent
+6. 补复盘与历史记录
+7. 之后再考虑更完整的平台化能力
