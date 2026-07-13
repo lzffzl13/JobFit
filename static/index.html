@@ -823,6 +823,21 @@
       let latestAnalysis = null;
       let resumeAgentSession = null;
 
+      function apiErrorMessage(payload, fallback) {
+        const detail = payload?.detail;
+        if (typeof detail === "string" && detail.trim()) return detail;
+        if (Array.isArray(detail)) {
+          const messages = detail
+            .map((item) => item?.msg || item?.message || (typeof item === "string" ? item : ""))
+            .filter(Boolean);
+          if (messages.length) return messages.join("；");
+        }
+        if (detail && typeof detail === "object") {
+          return detail.message || detail.msg || fallback;
+        }
+        return payload?.message || fallback;
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
@@ -850,7 +865,7 @@
           const response = await fetch("/jobfit/analyze", { method: "POST", body: data });
           const payload = await response.json();
           if (!response.ok) {
-            throw new Error(payload.detail || "请求失败");
+            throw new Error(apiErrorMessage(payload, "请求失败"));
           }
           latestAnalysis = payload;
           resumeAgentSession = null;
@@ -937,7 +952,7 @@
             }),
           });
           const payload = await response.json();
-          if (!response.ok) throw new Error(payload.detail || "Resume Agent 启动失败");
+          if (!response.ok) throw new Error(apiErrorMessage(payload, "Resume Agent 启动失败"));
           resumeAgentSession = payload;
           rerenderAgent();
         });
@@ -969,7 +984,7 @@
             body: JSON.stringify({ content: "用户补充了简历事实。", answers }),
           });
           const payload = await response.json();
-          if (!response.ok) throw new Error(payload.detail || "更新失败");
+          if (!response.ok) throw new Error(apiErrorMessage(payload, "更新失败"));
           resumeAgentSession = payload;
           rerenderAgent();
         });
@@ -991,7 +1006,7 @@
             }),
           });
           const payload = await response.json();
-          if (!response.ok) throw new Error(payload.detail || "记录选择失败");
+          if (!response.ok) throw new Error(apiErrorMessage(payload, "记录选择失败"));
           resumeAgentSession = payload;
           rerenderAgent();
         });
