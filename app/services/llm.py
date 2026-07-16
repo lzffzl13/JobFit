@@ -18,12 +18,9 @@ import re
 from typing import Any
 
 from app.schemas.jobfit import (
-    GapDetail,
-    MatchDetail,
+    JDProfile,
     MatchResult,
     ResumeProfile,
-    JDProfile,
-    JDRequirement,
 )
 
 logger = logging.getLogger(__name__)

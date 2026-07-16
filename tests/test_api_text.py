@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-
 # ---------------------------------------------------------------------------
 # Fake LLM client — returns appropriate responses for each extraction step
 # ---------------------------------------------------------------------------

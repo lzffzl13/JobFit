@@ -20,13 +20,13 @@ from app.core.config import settings
 from app.schemas.jobfit import (
     AnalysisOverview,
     GapDetail,
+    JDProfile,
     MatchDetail,
     MatchResult,
     RequirementAnalysis,
     ResumeProfile,
     RiskItemDetail,
     ScoreBreakdown,
-    JDProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -411,10 +411,6 @@ def calculate_match(resume: ResumeProfile, jd: JDProfile) -> MatchResult:
     Pure deterministic logic — no LLM involved.
     """
     all_resume_skills = resume.skills.hard + resume.skills.soft
-    project_texts = [
-        f"{p.name} {' '.join(p.tech)} {p.desc} {' '.join(p.highlights)}"
-        for p in resume.projects
-    ]
 
     match_details: list[MatchDetail] = []
 

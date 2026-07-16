@@ -15,11 +15,10 @@ from app.schemas.jobfit import (
     JobFitAnalysis,
     MatchItem,
     ResumeRewrite,
-    ScoreBreakdown,
 )
-from app.services.llm import extract_resume, extract_jd, generate_suggestions
-from app.services.matcher import calculate_match
+from app.services.llm import extract_jd, extract_resume, generate_suggestions
 from app.services.llm_clients.factory import get_llm_client
+from app.services.matcher import calculate_match
 
 logger = logging.getLogger(__name__)
 

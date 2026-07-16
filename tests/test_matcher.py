@@ -11,18 +11,14 @@ from app.schemas.jobfit import (
     SkillsBlock,
 )
 from app.services.matcher import (
-    _calculate_breakdown,
-    _embedding_match,
     _is_gap_detail,
     _match_education,
     _match_experience,
     _match_skill,
-    _match_soft,
     _normalize_text,
     _synonym_match,
     calculate_match,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

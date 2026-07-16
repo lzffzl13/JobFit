@@ -1,7 +1,5 @@
 """Integration tests for Resume Agent V1 session workflow."""
 
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -89,6 +87,29 @@ def test_create_resume_agent_session(monkeypatch, tmp_path):
     assert payload["proposals"][0]["safety_notes"]
 
 
+def test_create_resume_agent_session_from_uploaded_document(monkeypatch, tmp_path):
+    db_path = tmp_path / "resume-agent-upload.db"
+    monkeypatch.setattr("app.services.resume_agent.orchestrator.settings.resume_agent_db_path", str(db_path))
+    monkeypatch.setattr("app.services.resume_agent.orchestrator.analyze_job_fit", _fake_analyze_job_fit)
+    from app.services.resume_agent.orchestrator import get_resume_agent_orchestrator
+
+    get_resume_agent_orchestrator.cache_clear()
+    client = TestClient(app)
+    resume_content = "我使用 Python 开发后端服务，也负责接口设计、缓存优化和 Docker 容器化部署。"
+
+    response = client.post(
+        "/resume-agent/sessions/from-document",
+        data={"jd_text": "需要 Python、FastAPI 和 Docker 能力，能够负责后端服务开发与部署。"},
+        files={"resume": ("resume.txt", resume_content.encode("utf-8"), "text/plain")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["resume_text"] == resume_content
+    assert payload["state"] == "needs_clarification"
+    assert payload["analysis"]["match_score"] == 66
+
+
 def test_resume_agent_message_updates_session(monkeypatch, tmp_path):
     db_path = tmp_path / "resume-agent.db"
     monkeypatch.setattr("app.services.resume_agent.orchestrator.settings.resume_agent_db_path", str(db_path))
@@ -133,7 +154,7 @@ def test_resume_agent_message_updates_session(monkeypatch, tmp_path):
     assert docker_proposal["safety_notes"]
 
 
-def test_resume_agent_decision_marks_completion(monkeypatch, tmp_path):
+def test_resume_agent_decisions_survive_followup_and_complete_session(monkeypatch, tmp_path):
     db_path = tmp_path / "resume-agent.db"
     monkeypatch.setattr("app.services.resume_agent.orchestrator.settings.resume_agent_db_path", str(db_path))
     monkeypatch.setattr("app.services.resume_agent.orchestrator.analyze_job_fit", _fake_analyze_job_fit)
@@ -152,7 +173,7 @@ def test_resume_agent_decision_marks_completion(monkeypatch, tmp_path):
     session = create_response.json()
     proposal = session["proposals"][0]
 
-    response = client.post(
+    first_decision_response = client.post(
         f"/resume-agent/sessions/{session['id']}/decisions",
         json={
             "proposal_id": proposal["id"],
@@ -161,11 +182,46 @@ def test_resume_agent_decision_marks_completion(monkeypatch, tmp_path):
         },
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["state"] == "completed"
-    selected = next(item for item in payload["proposals"] if item["id"] == proposal["id"])
+    assert first_decision_response.status_code == 200
+    first_decision = first_decision_response.json()
+    assert first_decision["state"] == "needs_clarification"
+    selected = next(item for item in first_decision["proposals"] if item["id"] == proposal["id"])
     assert selected["status"] == "accepted"
+
+    question = first_decision["pending_questions"][0]
+    followup_response = client.post(
+        f"/resume-agent/sessions/{session['id']}/messages",
+        json={
+            "content": "补充 Docker 经历。",
+            "answers": [
+                {
+                    "question_id": question["id"],
+                    "requirement": "Docker",
+                    "answer": "我在个人项目中用 Docker 打包过 FastAPI 服务，并维护过 docker-compose 配置。",
+                }
+            ],
+        },
+    )
+
+    assert followup_response.status_code == 200
+    followup = followup_response.json()
+    assert followup["state"] == "awaiting_user_choice"
+    accepted = next(item for item in followup["proposals"] if item["requirement"] == "Python")
+    assert accepted["id"] == proposal["id"]
+    assert accepted["status"] == "accepted"
+
+    docker_proposal = next(item for item in followup["proposals"] if item["requirement"] == "Docker")
+    final_response = client.post(
+        f"/resume-agent/sessions/{session['id']}/decisions",
+        json={
+            "proposal_id": docker_proposal["id"],
+            "decision": ProposalStatus.REJECTED,
+            "note": "这条先不采纳。",
+        },
+    )
+
+    assert final_response.status_code == 200
+    assert final_response.json()["state"] == "completed"
 
 
 async def _fake_analyze_job_fit(resume_text: str, jd_text: str) -> JobFitAnalysis:

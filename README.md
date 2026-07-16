@@ -2,7 +2,7 @@
 
 # JobFit Agent
 
-**一个面向求职场景的简历分析与面试辅助项目**
+**一个面向求职场景的 AI 简历分析与优化助手**
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
@@ -10,7 +10,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-上传简历，粘贴 JD，生成匹配分析、简历优化建议和面试准备内容。
+上传简历，粘贴 JD，由 Resume Agent 审查证据、追问缺失信息并给出可确认的候选改写。
 
 </div>
 
@@ -18,13 +18,13 @@
 
 ## 项目简介
 
-JobFit Agent 是一个围绕简历和 JD 的分析项目，用来帮助用户更快看清一份简历和目标岗位之间的匹配情况，并给出更具体的优化和准备方向。
+JobFit Agent 是一个围绕简历和 JD 的 AI 求职辅助项目。系统不仅给出匹配分析，还会通过 Resume Agent 将分析结果推进为可审查、可补充、可选择的简历优化流程。
 
 项目的核心思路是：
 
 - 用 LLM 处理简历、JD 这类非结构化文本
 - 用程序完成相对稳定的匹配和打分
-- 再基于分析结果生成更具体的简历优化建议和面试问题
+- 再基于分析结果驱动 Resume Agent 审查、追问和候选改写
 
 目前项目已经支持：
 
@@ -32,10 +32,11 @@ JobFit Agent 是一个围绕简历和 JD 的分析项目，用来帮助用户更
 - JD 要求提取
 - 程序化匹配分析
 - 匹配缺口与风险项输出
-- 简历优化建议
+- Resume Agent 多轮优化会话
+- 用户补充事实与逐条建议确认
 - 面试问题生成
 
-后续会继续补强简历优化和模拟面试能力，也可以进一步扩展为更完整的求职平台。
+后续会继续补强模拟面试、复盘和历史对比能力，也可以进一步扩展为更完整的求职平台。
 
 ## 系统架构
 
@@ -60,18 +61,22 @@ JobFit Agent 是一个围绕简历和 JD 的分析项目，用来帮助用户更
                    |
                    v
          +--------------------+
-         |      匹配结果      |
-         |     分数 + 详情    |
+         |    结构化分析结果   |
+         | 分数 + 证据 + 风险 |
          +---------+----------+
                    |
-                   v
-         +--------------------+
-         |    LLM 生成建议    |
-         |    优化 + 面试题   |
-         +---------+----------+
+          +--------+--------+
+          |                 |
+          v                 v
+  +----------------+  +----------------+
+  |  Resume Agent  |  |  LLM 生成内容   |
+  | 审查/追问/提案 |  | 建议 + 面试问题 |
+  +-------+--------+  +-------+--------+
+          |                 |
+          +--------+--------+
                    |
                    v
-               返回结果
+            Agent-first 工作台
 ```
 
 处理流程分成四步：
@@ -79,7 +84,7 @@ JobFit Agent 是一个围绕简历和 JD 的分析项目，用来帮助用户更
 1. 从简历中提取结构化信息
 2. 从 JD 中提取岗位要求
 3. 用程序完成匹配和打分
-4. 基于结果生成建议和面试准备内容
+4. 基于结果生成建议，并驱动 Resume Agent 完成审查、追问和用户确认
 
 ## 功能特性
 
@@ -91,7 +96,9 @@ JobFit Agent 是一个围绕简历和 JD 的分析项目，用来帮助用户更
 | 程序匹配引擎 | 同义词表（~80 条高频映射）+ BGE Embedding 语义匹配 |
 | 加权评分 | 按需求级别（required/preferred/nice-to-have）加权计算 |
 | 匹配解释 | 输出分维度得分、匹配项、缺口和风险项 |
-| 简历优化建议 | 基于匹配结果生成针对性的优化建议 |
+| Resume Agent | 通过 SQLite 持久化会话，完成证据审查、事实追问、候选改写和用户决策 |
+| Agent-first 工作台 | 材料入口与会话工作区分离；桌面端按进度、对话、提案三栏组织，完整匹配报告作为可展开的分析依据 |
+| 多格式 Agent 输入 | 可通过粘贴文本或 PDF、DOCX、TXT、Markdown 文件直接创建 Agent 会话 |
 | 面试准备 | 基于简历和 JD 生成面试问题 |
 | 四层容错 | 强约束 prompt -> 自动重试 -> 字段兜底 -> Pydantic 校验 |
 | Docker 部署 | 支持本地一键启动 |
@@ -158,17 +165,20 @@ JobFit/
 ├── app/
 │   ├── main.py                  # FastAPI 应用入口
 │   ├── api/
-│   │   └── jobfit.py            # POST /jobfit/analyze 端点
+│   │   ├── jobfit.py            # 匹配分析端点
+│   │   └── resume_agent.py      # Resume Agent 会话端点
 │   ├── core/
 │   │   ├── config.py            # 环境变量配置
 │   │   └── interfaces.py        # LLM client 协议
 │   ├── schemas/
-│   │   └── jobfit.py            # Pydantic 数据模型
+│   │   ├── jobfit.py            # 匹配分析数据模型
+│   │   └── resume_agent.py      # Agent 会话与提案模型
 │   └── services/
 │       ├── document_parser.py   # 文档解析
 │       ├── jobfit.py            # 编排器：提取 -> 匹配 -> 建议
 │       ├── llm.py               # LLM 提取与建议生成
 │       ├── matcher.py           # 程序匹配引擎
+│       ├── resume_agent/        # 审查、提案、编排与 SQLite 持久化
 │       └── llm_clients/
 │           ├── base.py
 │           ├── deepseek.py
@@ -209,6 +219,16 @@ JobFit/
 | `interview_questions` | 面试问题 |
 | `risk_items` | 低匹配核心需求 |
 
+### Resume Agent
+
+| 接口 | 说明 |
+|------|------|
+| `POST /resume-agent/sessions` | 使用 JSON 文本创建优化会话 |
+| `POST /resume-agent/sessions/from-document` | 使用粘贴文本或简历文件创建优化会话 |
+| `GET /resume-agent/sessions/{id}` | 获取持久化会话、追问和提案 |
+| `POST /resume-agent/sessions/{id}/messages` | 补充真实事实并刷新审查结果 |
+| `POST /resume-agent/sessions/{id}/decisions` | 采纳或拒绝候选改写 |
+
 ## 测试
 
 ```bash
@@ -227,6 +247,7 @@ ruff check app tests
 - 匹配引擎
 - LLM 提取容错
 - API 集成测试
+- Resume Agent 会话、上传、状态流转和决策保留
 
 ## 环境变量
 
@@ -251,7 +272,7 @@ EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
 
 ## 后续方向
 
-- 补强简历优化模块
+- 增强 Resume Agent 提案生成质量和最终简历输出
 - 补强模拟面试与复盘模块
 - 增加历史记录与结果对比
 - 逐步扩展为更完整的求职平台

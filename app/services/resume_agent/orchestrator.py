@@ -94,7 +94,7 @@ class ResumeAgentOrchestrator:
 
         review_items = self._refresh_review_items(session, facts)
         pending_questions = [item.question for item in review_items if item.question and item.question.status == "pending"]
-        proposals = build_proposals(review_items)
+        proposals = self._preserve_proposal_decisions(session.proposals, build_proposals(review_items))
         state = self._resolve_state(pending_questions, proposals)
         summary = self._build_followup_summary(new_fact_requirements, pending_questions, proposals)
 
@@ -131,9 +131,13 @@ class ResumeAgentOrchestrator:
                 AgentMessage(role=MessageRole.USER, content=payload.note.strip(), created_at=session.updated_at),
             )
 
-        accepted = any(proposal.status == ProposalStatus.ACCEPTED for proposal in session.proposals)
-        session.state = ResumeAgentState.COMPLETED if accepted else ResumeAgentState.AWAITING_USER_CHOICE
-        session.summary = "已记录你的选择，可以继续采纳更多建议或结束本轮优化。"
+        session.state = self._resolve_state(session.pending_questions, session.proposals)
+        if session.pending_questions:
+            session.summary = f"已记录你的选择，还有 {len(session.pending_questions)} 个关键信息点等待补充。"
+        elif any(proposal.status == ProposalStatus.PROPOSED for proposal in session.proposals):
+            session.summary = "已记录你的选择，可以继续确认剩余候选建议。"
+        else:
+            session.summary = "本轮候选建议已全部确认，简历优化会话已完成。"
         self.repository.add_message(
             session_id,
             AgentMessage(role=MessageRole.AGENT, content=session.summary, created_at=session.updated_at),
@@ -148,9 +152,21 @@ class ResumeAgentOrchestrator:
     def _resolve_state(self, pending_questions, proposals) -> ResumeAgentState:
         if pending_questions:
             return ResumeAgentState.NEEDS_CLARIFICATION
-        if proposals:
+        if any(proposal.status == ProposalStatus.PROPOSED for proposal in proposals):
             return ResumeAgentState.AWAITING_USER_CHOICE
+        if proposals:
+            return ResumeAgentState.COMPLETED
         return ResumeAgentState.PROPOSAL_READY
+
+    def _preserve_proposal_decisions(self, existing, generated):
+        existing_by_requirement = {proposal.requirement: proposal for proposal in existing}
+        for proposal in generated:
+            previous = existing_by_requirement.get(proposal.requirement)
+            if previous is None:
+                continue
+            proposal.id = previous.id
+            proposal.status = previous.status
+        return generated
 
     def _build_summary(self, review_items: list[ReviewItem], pending_questions, proposals) -> str:
         direct_count = sum(1 for item in review_items if item.disposition.value == "direct_optimize")

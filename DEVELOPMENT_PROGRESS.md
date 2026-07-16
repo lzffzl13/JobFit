@@ -5,7 +5,8 @@
 ## 当前状态
 
 - 项目类型：简历分析与面试辅助项目
-- 当前版本：V3
+- 匹配引擎版本：V3
+- 当前产品阶段：Resume Agent V1（Agent-first 工作台）
 - 当前核心能力：
   - 简历结构化提取
   - JD 要求提取
@@ -13,7 +14,7 @@
   - 可解释的逐条 requirement 分析
   - 简历优化建议
   - 面试问题生成
-  - Resume Agent V1 会话骨架
+  - Resume Agent V1 多轮审查、追问与决策流程
 
 ## 当前架构
 
@@ -41,10 +42,11 @@
 - 风险项 / 缺口 / 分维度得分输出
 - 逐条 requirement 分析（状态 / 证据 / explanation / suggestion）
 - 分析总览与结构化 risk 结果
-- 单页报告页面
-- 报告页内 Resume Agent 前端入口
+- Agent-first 单页工作台
+- 可展开的匹配分析依据面板
 - Resume Agent V1 基础接口：
   - 创建会话
+  - 通过文本或文件创建会话
   - 继续对话 / 补充信息
   - 采纳改写建议
 
@@ -70,12 +72,14 @@
   - 先做审查、追问、建议、用户选择
 - 当前已具备：
   - `POST /resume-agent/sessions`
+  - `POST /resume-agent/sessions/from-document`
   - `GET /resume-agent/sessions/{id}`
   - `POST /resume-agent/sessions/{id}/messages`
   - `POST /resume-agent/sessions/{id}/decisions`
 - 当前状态流转：
   - `intake`
   - `needs_clarification`
+  - `proposal_ready`
   - `awaiting_user_choice`
   - `completed`
 - 当前已实现：
@@ -83,18 +87,17 @@
   - 用户补充信息记录
   - 基于分析结果的规则化审查
   - 候选改写建议生成
-  - 报告页中的 Agent 面板入口
+  - 用户决策在后续补充事实后继续保留
+  - 只有待补充信息和候选提案都处理完后才进入 `completed`
 
-#### 3. 当前前端形态提醒
+#### 3. Agent-first 工作台
 
-- 当前前端仍然是“先分析，再在结果区启动 Resume Agent”
-- 这个形态可用，但产品感更像“分析报告 + Agent 面板”
-- 后续如果要更像 AI 应用，应改成 **Agent-first 工作台**
-- 建议方向：
-  - 首页主入口从“匹配分析表单”调整为“简历优化 Agent 工作台”
-  - 简历 / JD 输入作为 Agent 的输入上下文
-  - 匹配分析作为 Agent 的依据面板，而不是第一视觉中心
-  - 主流程变成：用户给材料 -> Agent 审查 -> Agent 追问 -> 用户补充 -> Agent 给候选建议
+- 首页主入口已经从“匹配分析表单”升级为独立的材料入口，启动后再切换到“Resume Agent 工作台”
+- 简历 / JD 输入直接创建 Agent 会话，支持粘贴文本和文件上传
+- 主流程已经调整为：用户给材料 -> Agent 审查 -> Agent 追问 -> 用户补充 -> Agent 给候选建议 -> 用户逐条确认
+- 桌面端工作台按“当前进度 / Agent 对话 / 候选改写”三栏组织，各栏独立滚动；移动端自动切换为单列顺序阅读
+- 匹配分析继续保留，但放入可展开的依据面板，不再抢占第一视觉中心
+- 已完成桌面端与移动端浏览器检查，并跑通启动、追问、补充、采纳、返回材料区和展开分析依据流程
 
 ### 工程能力
 
@@ -109,7 +112,7 @@
 - `test_llm_extractors.py`
 - `test_api_text.py`
 - `test_resume_agent_api.py`
-- 当前测试状态：`60 passed`
+- 当前测试状态：`65 passed`
 
 ## 当前运行
 
@@ -124,9 +127,7 @@ uvicorn app.main:app --reload --port 9000
 
 ### 优先继续补强
 
-- 简历优化模块
-- Resume Agent 审查 / 追问 / 提案质量
-- Resume Agent-first 前端工作台
+- Resume Agent 提案生成质量与最终简历输出
 - 模拟面试模块
 - 匹配解释和风险说明
 - 历史记录与结果对比
@@ -152,7 +153,7 @@ uvicorn app.main:app --reload --port 9000
 
 - 语言和前端框架不是当前最关键的问题
 - 现阶段更看重：项目里能不能把 AI 的价值讲清楚、做出来、演示出来
-- 前端可以先够用，后面再优化
+- 前端已完成 Agent-first 主流程升级，后续只做围绕核心能力的增量优化
 - 平台化方向保留，但先后移
 
 ### 项目主线
@@ -229,10 +230,10 @@ uvicorn app.main:app --reload --port 9000
 
 建议顺序：
 
-1. 增强简历 / JD 分析结果
-2. 做 Resume Agent V1 骨架
-3. 增强 Resume Agent 的追问和提案质量
-4. 将前端改成 Agent-first 工作台
-5. 做 Interview Agent
+1. `[已完成]` 增强简历 / JD 分析结果
+2. `[已完成]` 做 Resume Agent V1 骨架
+3. `[已完成]` 增强 Resume Agent 的追问和提案质量
+4. `[已完成]` 将前端改成 Agent-first 工作台
+5. `[下一步]` 增强提案质量与最终简历输出，或启动 Interview Agent
 6. 补复盘与历史记录
 7. 之后再考虑更完整的平台化能力

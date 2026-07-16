@@ -19,6 +19,7 @@ env/
 !.env.example
 
 # Runtime data
+.data/
 uploads/
 storage/
 chroma_db/

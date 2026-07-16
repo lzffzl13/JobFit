@@ -7,7 +7,6 @@ Step 3 (LLM): Suggestions embedded in final JobFitAnalysis output
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ---------------------------------------------------------------------------
 # Step 1: LLM extraction schemas
 # ---------------------------------------------------------------------------
