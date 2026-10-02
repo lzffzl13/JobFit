@@ -20,6 +20,7 @@ from app.schemas.resume_agent import (
 )
 from app.services.jobfit import analyze_job_fit
 from app.services.resume_agent.analysis import refresh_analysis
+from app.services.resume_agent.document import initialize_document, refresh_document_validity
 from app.services.resume_agent.evidence import assess_requirements
 from app.services.resume_agent.identity import (
     assign_requirement_ids,
@@ -53,7 +54,7 @@ class ResumeAgentOrchestrator:
             assessments=assessments,
         )
         self._rebuild(session)
-        self.repository.save_session(session)
+        initialize_document(session)
         return self._record_summary(session)
 
     def get_session(self, session_id: str) -> ResumeAgentSession:
@@ -71,7 +72,8 @@ class ResumeAgentOrchestrator:
             self._rebuild(session)
         elif migrated:
             self._rebuild(session)
-        if migrated:
+        initialized = initialize_document(session)
+        if migrated or initialized:
             self.repository.save_session(session)
         return session
 
@@ -121,7 +123,7 @@ class ResumeAgentOrchestrator:
         session.updated_at = datetime.now(UTC)
         self._rebuild(session)
         if payload.content.strip():
-            self.repository.add_message(session_id, AgentMessage(
+            session.messages.append(AgentMessage(
                 role=MessageRole.USER, content=payload.content.strip(), created_at=session.updated_at
             ))
         return self._record_summary(session)
@@ -141,12 +143,13 @@ class ResumeAgentOrchestrator:
         session.updated_at = datetime.now(UTC)
         self._rebuild(session)
         if payload.note.strip():
-            self.repository.add_message(session_id, AgentMessage(
+            session.messages.append(AgentMessage(
                 role=MessageRole.USER, content=payload.note.strip(), created_at=session.updated_at
             ))
         return self._record_summary(session)
 
     def _rebuild(self, session: ResumeAgentSession) -> None:
+        session.preview = None
         original = session.initial_analysis or session.analysis
         session.analysis = refresh_analysis(original, session.assessments, updated=bool(session.facts))
         session.analysis_overview = session.analysis.analysis_overview
@@ -171,6 +174,7 @@ class ResumeAgentOrchestrator:
         previous.update({requirement_key(p): p for p in session.proposals})
         session.proposal_history = list(previous.values())
         session.state = self._resolve_state(session.pending_questions, session.proposals)
+        refresh_document_validity(session)
         if session.pending_questions:
             session.summary = (
                 f"还有 {len(session.pending_questions)} 项关键事实待确认。"
@@ -180,7 +184,7 @@ class ResumeAgentOrchestrator:
             accepted = sum(p.status == ProposalStatus.ACCEPTED for p in session.proposals)
             session.summary = (
                 f"本轮已完成，已采纳 {accepted} 条改写。"
-                "可使用下方已采纳的表达；缺口不生成经历。"
+                "请预览字段修改并确认应用，才能生成新的简历版本；缺口不生成经历。"
             )
         else:
             session.summary = f"关键事实已确认，已整理 {len(session.proposals)} 条候选改写，请逐条选择。"
@@ -210,10 +214,9 @@ class ResumeAgentOrchestrator:
         return generated
 
     def _record_summary(self, session: ResumeAgentSession) -> ResumeAgentSession:
-        self.repository.add_message(session.id, AgentMessage(
+        session.messages.append(AgentMessage(
             role=MessageRole.AGENT, content=session.summary, created_at=session.updated_at
         ))
-        session.messages = self.repository.list_messages(session.id)
         self.repository.save_session(session)
         return session
 

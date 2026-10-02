@@ -2336,6 +2336,15 @@
         if (action === "new-session") {
           resetWorkspace();
         }
+        if (action === "document-view" || action === "interview-view") {
+          document.querySelector(action === "document-view" ? "#document-panel" : "#interview-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+        }
+        if (["document-preview", "document-apply", "document-edit", "document-restore", "document-export"].includes(action)) {
+          await documentAction(event.target.closest("[data-agent-action]"), action);
+        }
+        if (["interview-start", "interview-answer", "interview-skip", "interview-pause", "interview-resume", "interview-finish"].includes(action)) {
+          await interviewAction(event.target.closest("[data-agent-action]"), action);
+        }
       });
 
       function showIntakeNotice(message, tone = "info") {
@@ -2359,6 +2368,8 @@
         result.className = "report-shell";
         result.innerHTML = `
           ${agentSection()}
+          ${documentPanel(resumeAgentSession)}
+          ${interviewPanel(resumeAgentSession)}
           ${analysisDrawer(latestAnalysis)}
         `;
       }
@@ -2473,7 +2484,12 @@
         try {
           await work();
         } catch (error) {
-          showAgentNotice(error.message, "danger");
+          const action = buttonEl.dataset?.agentAction || "";
+          const notice = document.querySelector(action.startsWith("document-") ? "#document-notice" : action.startsWith("interview-") ? "#interview-notice" : "#agent-notice");
+          if (notice) {
+            notice.className = "workspace-notice show danger";
+            notice.textContent = error.message;
+          } else showAgentNotice(error.message, "danger");
         } finally {
           buttonEl.disabled = false;
           buttonEl.textContent = original;
@@ -2600,6 +2616,8 @@
 
             <div class="rail-actions">
               <button type="button" data-agent-action="analysis">匹配详情</button>
+              <button type="button" data-agent-action="document-view">简历版本与导出</button>
+              <button type="button" data-agent-action="interview-view">面试练习</button>
             </div>
           </aside>
         `;
@@ -2707,6 +2725,140 @@
               .join("")
           : '<p class="muted small">暂无记录</p>';
         return `<details class="dialogue-history"><summary>记录 · ${messages.length}</summary><div class="message-list">${content}</div></details>`;
+      }
+
+      function documentPanel(session) {
+        const doc = session.document;
+        if (!doc) return "";
+        const text = (doc.fields || []).map(field => field.text).join("");
+        const preview = session.preview;
+        const selected = (session.proposals || []).filter(p => p.status === "accepted").length;
+        return `<section id="document-panel" class="section-card wide" style="margin-top:18px">
+          <h3>简历版本 · 第 ${doc.revision} 版</h3>
+          <div id="document-notice" class="workspace-notice" role="status"></div>
+          <p class="muted small">采纳候选后先检查字段差异，再确认应用。导出内容来自当前已保存版本。</p>
+          ${doc.outdated_requirements?.length ? '<p class="chip warn">部分已应用表达的事实依据已更正，请更新或手动核对后导出。</p>' : ""}
+          <div class="proposal-actions">
+            <button type="button" data-agent-action="document-preview" ${!selected || session.pending_questions?.length ? "disabled" : ""}>预览已采纳改写（${selected}）</button>
+            <button type="button" class="button-secondary" data-agent-action="document-export" ${doc.outdated_requirements?.length ? "disabled" : ""}>导出当前简历 TXT</button>
+          </div>
+          ${preview ? `<div id="document-preview" class="proposal-stack" style="margin-top:14px">
+            <h3>待确认预览 · 基于第 ${preview.base_revision} 版</h3>
+            ${preview.changes.map(change => `<article class="proposal-card">
+              <strong>${change.operation === "add" ? "追加已确认事实" : "替换原文字段"}</strong>
+              <p class="muted small">修改位置：${escapeHtml(change.label || "简历段落")}</p>
+              <div class="proposal-copy"><div class="copy-block"><strong>修改前</strong><span style="white-space:pre-wrap">${escapeHtml(change.before || "（新增字段）")}</span></div>
+              <div class="copy-block"><strong>修改后</strong><span style="white-space:pre-wrap">${escapeHtml(change.after)}</span></div></div>
+              <p class="small">事实来源：${change.source_ids.map(id => id.startsWith("fact_") ? "已确认的用户补充" : "原始简历").join("、")}</p>
+              ${change.evidence_basis.map(quote => `<p class="muted small">${escapeHtml(quote)}</p>`).join("")}
+              <div class="pill-list">${change.checks.map(check => `<span class="chip strong">${escapeHtml(check)}</span>`).join("")}</div>
+            </article>`).join("")}
+            <details><summary>查看修改后的完整文本</summary><pre style="white-space:pre-wrap;padding:16px">${escapeHtml(preview.text)}</pre></details>
+            <button type="button" data-agent-action="document-apply" data-preview-token="${escapeHtml(preview.token)}" data-document-revision="${preview.base_revision}">确认应用此预览</button>
+          </div>` : ""}
+          <details style="margin-top:14px"><summary>查看与手动编辑当前简历</summary>
+            <div style="padding:16px"><label for="document-editor">当前简历文本</label>
+            <textarea id="document-editor" rows="12" style="min-height:260px">${escapeHtml(text)}</textarea>
+            <p class="muted small">手动编辑作为你确认的内容保存，匹配报告仍基于原始材料及补充事实。</p>
+            <button type="button" data-agent-action="document-edit" data-document-revision="${doc.revision}">保存为新版本</button></div>
+          </details>
+          <details style="margin-top:12px"><summary>版本历史 · ${doc.versions.length} 个快照</summary>
+            <div class="detail-list" style="padding:16px">${[...doc.versions].reverse().map(v => `<div class="detail-item">
+              <strong>第 ${v.revision} 版 · ${escapeHtml(v.label)}</strong>
+              <details><summary>查看文本</summary><pre style="white-space:pre-wrap;padding:12px">${escapeHtml(v.fields.map(f => f.text).join(""))}</pre></details>
+              <button type="button" class="button-secondary" data-agent-action="document-restore" data-version-revision="${v.revision}" data-document-revision="${doc.revision}">恢复此版本</button>
+            </div>`).join("")}</div>
+          </details>
+        </section>`;
+      }
+
+      async function sessionMutation(path, body, method = "POST") {
+        const response = await fetch(`/resume-agent/sessions/${resumeAgentSession.id}/${path}`, {
+          method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(apiErrorMessage(payload, "操作失败"));
+        resumeAgentSession = payload;
+        rerenderAgent();
+      }
+
+      async function documentAction(trigger, action) {
+        await withBusy(trigger, "处理中...", async () => {
+          const expected_revision = Number(trigger.dataset.documentRevision);
+          if (action === "document-preview") await sessionMutation("document/preview", {});
+          if (action === "document-apply") await sessionMutation("document/apply", {token: trigger.dataset.previewToken, expected_revision});
+          if (action === "document-edit") await sessionMutation("document", {text: document.querySelector("#document-editor").value, expected_revision}, "PUT");
+          if (action === "document-restore") await sessionMutation("document/restore", {revision: Number(trigger.dataset.versionRevision), expected_revision});
+          if (action === "document-export") {
+            const response = await fetch(`/resume-agent/sessions/${resumeAgentSession.id}/document/export`);
+            if (!response.ok) throw new Error(apiErrorMessage(await response.json(), "导出失败"));
+            const link = document.createElement("a");
+            link.href = `/resume-agent/sessions/${resumeAgentSession.id}/document/export`;
+            link.download = "jobfit-resume.txt";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          }
+          if (action !== "document-export") document.querySelector("#document-panel")?.scrollIntoView({block: "start"});
+        });
+      }
+
+      function currentInterview(session) {
+        return (session.interviews || []).find(run => run.id === session.active_interview_id);
+      }
+
+      function feedbackCard(turn) {
+        const feedback = turn.feedback;
+        return `<div class="detail-item"><strong>${escapeHtml(turn.question.text)}</strong>
+          <p style="white-space:pre-wrap">${escapeHtml(turn.skipped ? "已跳过" : turn.answer)}</p>
+          <p class="muted small">${feedback.score == null ? "本次未评分" : `参考评分：${feedback.score}/100`}</p>
+          ${feedback.evidence.map(quote => `<p class="small">回答依据：${escapeHtml(quote)}</p>`).join("")}
+          ${feedback.strengths.map(item => `<p>${escapeHtml(item)}</p>`).join("")}
+          ${feedback.improvements.map(item => `<p class="muted small">建议：${escapeHtml(item)}</p>`).join("")}
+        </div>`;
+      }
+
+      function practiceReport(report) {
+        if (!report) return "";
+        return `<div class="detail-item"><h3>练习报告</h3><p>${escapeHtml(report.summary)}</p>
+          <p>参考均分：${report.average_score ?? "暂无"} · 有效评价 ${report.assessed_count} 次</p>
+          ${report.improvements.map(item => `<p>${escapeHtml(item)}</p>`).join("")}</div>`;
+      }
+
+      function interviewPanel(session) {
+        const run = currentInterview(session);
+        const question = run?.current_question;
+        return `<section id="interview-panel" class="section-card wide" style="margin-top:18px">
+          <h3>面试练习</h3><p class="muted small">优先练习岗位缺口；回答与反馈独立保存，不自动成为简历事实。</p>
+          <div id="interview-notice" class="workspace-notice" role="status"></div>
+          ${!run || run.state === "completed" ? '<button type="button" data-agent-action="interview-start">开始新一轮练习（最多 3 题）</button>' : ""}
+          ${run ? `<p class="chip">${run.state === "paused" ? "已暂停" : run.state === "completed" ? "已结束" : "进行中"} · 使用简历第 ${run.source_document_revision} 版</p>
+            ${question ? `<div class="question-card"><strong>第 ${run.position + 1}/${run.plan.length} 题${question.kind === "followup" ? " · 追问" : ""}</strong>
+              <p>${escapeHtml(question.text)}</p><p class="muted small">考察重点：${escapeHtml(question.focus)}</p>
+              ${run.state === "active" ? `<label for="interview-answer">你的回答</label><textarea id="interview-answer" placeholder="说明思路和真实范围"></textarea>
+              <div class="proposal-actions"><button type="button" data-agent-action="interview-answer">提交回答</button><button type="button" class="button-secondary" data-agent-action="interview-skip">跳过本题</button></div>` : ""}</div>` : ""}
+            ${run.state !== "completed" ? `<div class="proposal-actions"><button type="button" class="button-secondary" data-agent-action="interview-${run.state === "paused" ? "resume" : "pause"}">${run.state === "paused" ? "继续练习" : "暂停练习"}</button>
+            <button type="button" class="button-secondary" data-agent-action="interview-finish">结束并生成报告</button></div>` : ""}
+            ${practiceReport(run.report)}
+            ${run.turns.length ? `<details style="margin-top:12px" open><summary>本轮回答与反馈 · ${run.turns.length} 次</summary><div class="detail-list" style="padding:16px">${run.turns.map(feedbackCard).join("")}</div></details>` : ""}` : ""}
+          ${(session.interviews || []).length > 1 ? `<details style="margin-top:12px"><summary>历史练习</summary>${session.interviews.filter(item => item.id !== run?.id).map(item => `<div style="padding:16px">${practiceReport(item.report)}${item.turns.map(feedbackCard).join("")}</div>`).join("")}</details>` : ""}
+        </section>`;
+      }
+
+      async function interviewAction(trigger, action) {
+        const run = currentInterview(resumeAgentSession);
+        await withBusy(trigger, "处理中...", async () => {
+          if (action === "interview-start") {
+            await sessionMutation("interview", {question_count: 3});
+          } else {
+            const guard = {run_id: run.id, expected_revision: run.revision};
+            if (action === "interview-answer" || action === "interview-skip") {
+              await sessionMutation("interview/answers", {...guard, question_id: run.current_question.id,
+                answer: document.querySelector("#interview-answer")?.value || "", skip: action === "interview-skip"});
+            } else await sessionMutation("interview/control", {...guard, action: action.replace("interview-", "")});
+          }
+          document.querySelector("#interview-panel")?.scrollIntoView({block: "start"});
+        });
       }
 
       function stateText(state) {

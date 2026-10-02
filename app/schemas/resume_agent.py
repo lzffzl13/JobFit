@@ -7,7 +7,9 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from app.schemas.interview import InterviewRun
 from app.schemas.jobfit import AnalysisOverview, JobFitAnalysis
+from app.schemas.resume_document import ResumeDocument, ResumePreview
 
 
 class ResumeAgentState(StrEnum):
@@ -181,5 +183,10 @@ class ResumeAgentSession(BaseModel):
     facts: list[UserFact] = Field(default_factory=list)
     proposals: list[RewriteProposal] = Field(default_factory=list)
     messages: list[AgentMessage] = Field(default_factory=list)
+    document: ResumeDocument | None = None
+    preview: ResumePreview | None = None
+    storage_revision: int = 0
+    interviews: list[InterviewRun] = Field(default_factory=list)
+    active_interview_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

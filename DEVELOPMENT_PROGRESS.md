@@ -6,7 +6,7 @@
 
 - 项目类型：简历分析与面试辅助项目
 - 匹配引擎版本：V3
-- 当前产品阶段：Resume Agent V1（Agent-first 工作台）
+- 当前产品阶段：Resume Agent 工作台 + 简历版本与面试练习初版
 - 当前核心能力：
   - 简历结构化提取
   - JD 要求提取
@@ -15,6 +15,8 @@
   - 简历优化建议
   - 面试问题生成
   - Resume Agent V1 多轮审查、追问与决策流程
+  - 字段修改预览、事实校验、应用确认、版本恢复及 TXT 导出
+  - 按岗位缺口练习、回答评价、一次追问、暂停恢复及最终报告
 
 ## 当前架构
 
@@ -112,10 +114,11 @@
 - `test_llm_extractors.py`
 - `test_api_text.py`
 - `test_resume_agent_api.py`
-- 当前测试状态：Python `115 passed`，前端恢复测试 `9 passed`（2026-10-02）
+- 当前测试状态：Python `134 passed`，前端脚本测试 `14 passed`（2026-10-02）
 - 已补充事实确认、否定/不确定回答、证据追溯、建议版本和评分更新的回归测试。
 - 修复与测试记录见 [WORKFLOW_FIX_REPORT.md](WORKFLOW_FIX_REPORT.md)。
 - 已追加修复会话刷新恢复、同名要求独立关联，以及旧独立分析接口的建议证据缺失。
+- 已实现开源参考落地初版：简历字段预览和版本闭环、面试状态循环；详见 [REFERENCE_IMPLEMENTATION_REPORT.md](REFERENCE_IMPLEMENTATION_REPORT.md)。
 
 ## 当前运行
 
@@ -130,8 +133,8 @@ uvicorn app.main:app --reload --port 9000
 
 ### 优先继续补强
 
-- Resume Agent 提案生成质量与最终简历输出
-- 模拟面试模块
+- 保守改写基础上的表达质量、语义字段编辑与版式导出
+- 面试题库、评价质量与跨轮复盘
 - 匹配解释和风险说明
 - 历史记录与结果对比
 
@@ -237,6 +240,6 @@ uvicorn app.main:app --reload --port 9000
 2. `[已完成]` 做 Resume Agent V1 骨架
 3. `[已完成]` 增强 Resume Agent 的追问和提案质量
 4. `[已完成]` 将前端改成 Agent-first 工作台
-5. `[下一步]` 增强提案质量与最终简历输出，或启动 Interview Agent
-6. 补复盘与历史记录
+5. `[已完成初版]` 字段修改、简历版本与 TXT 导出、面试练习循环
+6. `[下一步]` 补强语义字段、排版导出、面试题质量与跨轮复盘
 7. 之后再考虑更完整的平台化能力
