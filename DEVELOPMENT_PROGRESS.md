@@ -112,7 +112,10 @@
 - `test_llm_extractors.py`
 - `test_api_text.py`
 - `test_resume_agent_api.py`
-- 当前测试状态：`65 passed`
+- 当前测试状态：Python `115 passed`，前端恢复测试 `9 passed`（2026-10-02）
+- 已补充事实确认、否定/不确定回答、证据追溯、建议版本和评分更新的回归测试。
+- 修复与测试记录见 [WORKFLOW_FIX_REPORT.md](WORKFLOW_FIX_REPORT.md)。
+- 已追加修复会话刷新恢复、同名要求独立关联，以及旧独立分析接口的建议证据缺失。
 
 ## 当前运行
 

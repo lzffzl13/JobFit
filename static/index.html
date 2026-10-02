@@ -207,6 +207,7 @@
       }
 
       input,
+      select,
       textarea {
         width: 100%;
         border: 1px solid var(--line);
@@ -224,6 +225,7 @@
       }
 
       input:focus,
+      select:focus,
       textarea:focus {
         outline: none;
         border-color: var(--accent);
@@ -2204,6 +2206,54 @@
       const jdText = document.querySelector("#jd");
       let latestAnalysis = null;
       let resumeAgentSession = null;
+      const activeSessionKey = "jobfit.active-session";
+
+      function rememberSession(id) {
+        const url = new URL(window.location.href);
+        if (id) url.searchParams.set("session", id);
+        else url.searchParams.delete("session");
+        window.history.replaceState(null, "", url);
+        try {
+          if (id) sessionStorage.setItem(activeSessionKey, id);
+          else sessionStorage.removeItem(activeSessionKey);
+        } catch (_) { /* The URL can restore a session when storage is unavailable. */ }
+      }
+
+      async function restoreSession() {
+        const url = new URL(window.location.href);
+        let id = url.searchParams.get("session");
+        if (!url.searchParams.has("session")) {
+          try { id = sessionStorage.getItem(activeSessionKey); } catch (_) {}
+        }
+        if (!id) return;
+        if (!/^ras_[a-f0-9]{12}$/.test(id)) {
+          rememberSession(null);
+          showIntakeNotice("会话链接无效，请重新开始分析。", "danger");
+          return;
+        }
+        button.disabled = true;
+        showIntakeNotice("正在恢复会话...");
+        try {
+          const response = await fetch(`/resume-agent/sessions/${encodeURIComponent(id)}`);
+          const payload = await response.json();
+          if (!response.ok) {
+            if (response.status === 404) rememberSession(null);
+            throw new Error(response.status === 404 ? "会话已不存在，请重新提供材料。" : apiErrorMessage(payload, "会话恢复失败，请刷新重试。"));
+          }
+          resumeAgentSession = payload;
+          latestAnalysis = payload.analysis;
+          resumeText.value = payload.resume_text;
+          jdText.value = payload.jd_text;
+          document.body.classList.add("session-active");
+          rememberSession(payload.id);
+          showIntakeNotice("");
+          renderWorkspace();
+        } catch (error) {
+          showIntakeNotice(error.message, "danger");
+        } finally {
+          button.disabled = false;
+        }
+      }
 
       function apiErrorMessage(payload, fallback) {
         const detail = payload?.detail;
@@ -2250,6 +2300,7 @@
           }
           resumeAgentSession = payload;
           latestAnalysis = payload.analysis;
+          rememberSession(payload.id);
           document.body.classList.add("session-active");
           showIntakeNotice("");
           renderWorkspace();
@@ -2272,6 +2323,9 @@
         if (action === "accept" || action === "reject") {
           await submitProposalDecision(event.target, action);
         }
+        if (action === "correct-fact") {
+          await submitFactCorrection(event.target);
+        }
         if (action === "analysis") {
           const drawer = document.querySelector(".analysis-drawer");
           if (drawer) {
@@ -2290,6 +2344,7 @@
       }
 
       function resetWorkspace() {
+        rememberSession(null);
         resumeAgentSession = null;
         latestAnalysis = null;
         result.className = "";
@@ -2310,11 +2365,13 @@
 
       function analysisDrawer(data) {
         const breakdown = data.score_breakdown || {};
+        const initialScore = resumeAgentSession?.initial_analysis?.match_score;
+        const updated = Boolean(resumeAgentSession?.facts?.length);
         return `
           <details class="analysis-drawer">
             <summary>
               <span class="analysis-summary-copy">
-                <strong>匹配详情 · ${data.match_score || 0}/100</strong>
+                <strong>${updated ? "补充后" : "初步"}匹配详情 · ${data.match_score || 0}/100</strong>
               </span>
               <span class="chip">展开</span>
             </summary>
@@ -2326,7 +2383,8 @@
                 </div>
                 <div class="summary-copy">
                   <div>
-                    <h2>分析结果</h2>
+                    <h2>${updated ? "补充后分析" : "初步分析"}</h2>
+                    ${updated && initialScore != null ? `<p class="muted small">初始匹配度 ${initialScore}/100 → 当前 ${data.match_score}/100</p>` : ""}
                     <p class="muted">${escapeHtml(data.summary)}</p>
                   </div>
                   <div class="metrics">
@@ -2360,10 +2418,12 @@
             return {
               question_id: question.id,
               requirement: question.requirement,
+              requirement_id: question.requirement_id,
               answer: textarea?.value.trim() || "",
+              answer_type: document.querySelector(`[data-answer-type="${cssEscape(question.id)}"]`)?.value || "details",
             };
           })
-          .filter((item) => item.answer);
+          .filter((item) => item.answer || item.answer_type !== "details");
 
         if (!answers.length) {
           showAgentNotice("请先填写至少一项。", "warn");
@@ -2394,6 +2454,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               proposal_id: proposalId,
+              version: Number(trigger.closest("[data-proposal-id]")?.dataset.proposalVersion || 1),
               decision: action === "accept" ? "accepted" : "rejected",
               note: action === "accept" ? "采纳该候选建议。" : "暂不采纳该候选建议。",
             }),
@@ -2420,8 +2481,32 @@
       }
 
       function rerenderAgent() {
-        const node = document.querySelector("#resume-agent-panel");
-        if (node) node.outerHTML = agentSection();
+        const analysisOpen = document.querySelector(".analysis-drawer")?.open;
+        latestAnalysis = resumeAgentSession.analysis;
+        renderWorkspace();
+        if (analysisOpen) document.querySelector(".analysis-drawer").open = true;
+      }
+
+      async function submitFactCorrection(trigger) {
+        const requirementId = document.querySelector("#correction-requirement")?.value;
+        const answer = document.querySelector("#correction-answer")?.value.trim();
+        const answerType = document.querySelector("#correction-type")?.value || "details";
+        if (!requirementId || (!answer && answerType === "details")) {
+          showAgentNotice("请选择要更正的项目并填写完整事实。", "warn");
+          return;
+        }
+        await withBusy(trigger, "确认中...", async () => {
+          const response = await fetch(`/resume-agent/sessions/${resumeAgentSession.id}/messages`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({content: "用户更正了简历事实。", answers: [
+              {question_id: "", requirement_id: requirementId, answer: answer || "", answer_type: answerType}
+            ]}),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(apiErrorMessage(payload, "更新失败"));
+          resumeAgentSession = payload;
+          rerenderAgent();
+        });
       }
 
       function showAgentNotice(message, tone = "warn") {
@@ -2466,12 +2551,14 @@
           <section class="workspace-pane conversation-pane">
             <div class="pane-head">
               <div>
-                <h3>${questionCount ? "待补充信息" : "材料已确认"}</h3>
+                <h3>${questionCount ? "待补充信息" : "本轮信息已处理"}</h3>
               </div>
               <span class="chip ${questionCount ? "warn" : "strong"}">${questionCount ? `${questionCount} 项` : "已完成"}</span>
             </div>
             <div id="agent-notice" class="workspace-notice"></div>
+            <p class="muted small">${escapeHtml(session.summary || "")}</p>
             ${questionPanel(session.pending_questions || [])}
+            ${factCorrectionPanel(session)}
             ${messagePanel(session.messages || [])}
           </section>
           <section class="workspace-pane proposals-pane">
@@ -2481,7 +2568,7 @@
               </div>
               <span class="chip strong">${proposalCount} 条</span>
             </div>
-            ${proposalPanel(session.proposals || [])}
+            ${questionCount ? '<div class="empty"><strong>确认关键事实后生成改写</strong><p>没有做过或暂不回答的项目会保留为缺口。</p></div>' : proposalPanel(session.proposals || [])}
           </section>
         `;
       }
@@ -2502,7 +2589,7 @@
             </div>
 
             <div class="rail-score">
-              <div><span>匹配度</span></div>
+              <div><span>${session.facts?.length ? "补充后匹配度" : "初步匹配度"}</span></div>
               <div class="rail-score-value">${score}</div>
             </div>
             <div class="rail-kpis">
@@ -2537,11 +2624,17 @@
               .map((question) => `
                 <div class="question-card">
                   <div class="question-head">
-                    <strong>${escapeHtml(question.requirement)}</strong>
+                    <strong>${escapeHtml(requirementLabel(question))}</strong>
                   </div>
                   <p>${escapeHtml(question.question)}</p>
                   ${question.expected_evidence?.length ? `<div class="pill-list">${question.expected_evidence.map((x) => `<span class="chip">${escapeHtml(x)}</span>`).join("")}</div>` : ""}
-                  <textarea class="question-answer" data-question-id="${escapeHtml(question.id)}" placeholder="填写实际情况"></textarea>
+                  <select aria-label="${escapeHtml(requirementLabel(question))} 的实际情况" data-answer-type="${escapeHtml(question.id)}">
+                    <option value="details">补充实际经历</option>
+                    <option value="no_experience">没有做过</option>
+                    <option value="unsure">不确定，需要继续确认</option>
+                    <option value="skip">暂不回答，保留缺口</option>
+                  </select>
+                  <textarea aria-label="${escapeHtml(requirementLabel(question))} 的补充说明" class="question-answer" data-question-id="${escapeHtml(question.id)}" placeholder="填写完整事实：具体场景、你完成的动作；有实际结果也可以补充"></textarea>
                 </div>
               `)
               .join("")
@@ -2552,11 +2645,32 @@
         `;
       }
 
+      function factCorrectionPanel(session) {
+        const requirements = session.review_items || [];
+        if (!requirements.length) return "";
+        return `<details class="dialogue-history">
+          <summary>补充或更正已确认事实</summary>
+          <p class="muted small">填写这一项的完整最新事实。内容变化后，相关改写需要重新确认。</p>
+          <label for="correction-requirement">要更正的项目</label>
+          <select id="correction-requirement">${requirements.map((item) => `<option value="${escapeHtml(item.requirement_id)}">${escapeHtml(requirementLabel(item))}</option>`).join("")}</select>
+          <label for="correction-type">实际情况</label>
+          <select id="correction-type"><option value="details">补充实际经历</option><option value="no_experience">没有做过</option><option value="unsure">不确定</option><option value="skip">暂不回答</option></select>
+          <label for="correction-answer">完整最新事实</label>
+          <textarea id="correction-answer" placeholder="具体场景、个人动作和实际结果"></textarea>
+          <button type="button" data-agent-action="correct-fact">提交更正</button>
+        </details>`;
+      }
+
       function proposalPanel(proposals) {
         const content = proposals.length
           ? proposals.map(proposalCard).join("")
-          : '<div class="empty"><strong>暂无候选改写</strong></div>';
+          : '<div class="empty"><strong>本轮没有可写入的新增经历</strong><p>缺口已保留，可以补充真实事实后重新生成。</p></div>';
         return `<div class="proposal-stack">${content}</div>`;
+      }
+
+      function requirementLabel(item) {
+        const categories = {skill: "技能", project: "项目", experience: "经验", education: "学历", soft: "协作"};
+        return `${item.requirement} · ${categories[item.category] || item.category || "要求"}`;
       }
 
       function proposalCard(item) {
@@ -2566,9 +2680,10 @@
           .filter((note) => !/最终采用前|用户确认事实准确|不会直接覆盖|不得编造/.test(note))
           .map((note) => note.replace(/^仍需留意[：:]\s*/, "需补充："));
         return `
-          <article class="proposal-card${acceptedClass}" data-proposal-id="${escapeHtml(item.id)}">
+          <article class="proposal-card${acceptedClass}" data-proposal-id="${escapeHtml(item.id)}" data-proposal-version="${item.version || 1}">
             <div class="proposal-head">
-              <strong>${escapeHtml(item.requirement)}</strong>
+              <strong>${escapeHtml(requirementLabel(item))}</strong>
+              <span class="chip">第 ${item.version || 1} 版 · ${item.status === "accepted" ? "已采纳" : item.status === "rejected" ? "未采纳" : "待确认"}</span>
               <span class="chip ${toneClass}">${escapeHtml(toneText(item.tone))}</span>
             </div>
             <div class="proposal-copy">
@@ -2689,6 +2804,7 @@
         if (window.CSS && CSS.escape) return CSS.escape(value);
         return String(value).replace(/["\\]/g, "\\$&");
       }
+      restoreSession();
     </script>
   </body>
 </html>

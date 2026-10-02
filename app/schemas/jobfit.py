@@ -69,6 +69,7 @@ class MatchDetail(BaseModel):
     """Per-requirement match result."""
 
     requirement: str
+    requirement_id: str = ""
     category: str = "skill"
     level: str = "required"
     matched: bool = False
@@ -91,6 +92,7 @@ class RequirementAnalysis(BaseModel):
     """Detailed analysis for a single JD requirement."""
 
     requirement: str
+    requirement_id: str = ""
     category: str = "skill"
     level: str = "required"
     matched: bool = False
@@ -171,6 +173,7 @@ class ResumeRewrite(BaseModel):
     before: str
     after: str
     reason: str
+    evidence_basis: str = ""
 
 
 class InterviewQuestion(BaseModel):

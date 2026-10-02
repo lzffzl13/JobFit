@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -65,6 +66,8 @@ class ProposalTone(StrEnum):
 class ClarifyingQuestion(BaseModel):
     id: str = Field(default_factory=lambda: f"q_{uuid4().hex[:10]}")
     requirement: str
+    requirement_id: str = ""
+    category: str = "skill"
     question: str
     rationale: str = ""
     expected_evidence: list[str] = Field(default_factory=list)
@@ -74,15 +77,19 @@ class ClarifyingQuestion(BaseModel):
 class UserFact(BaseModel):
     id: str = Field(default_factory=lambda: f"fact_{uuid4().hex[:10]}")
     requirement: str
+    requirement_id: str = ""
     content: str
     source: str = "user"
     confirmed: bool = True
+    answer_type: Literal["details", "no_experience", "unsure", "skip"] = "details"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RewriteProposal(BaseModel):
     id: str = Field(default_factory=lambda: f"proposal_{uuid4().hex[:10]}")
     requirement: str
+    requirement_id: str = ""
+    category: str = "skill"
     source_section: str = "experience"
     before: str = ""
     after: str = ""
@@ -93,10 +100,25 @@ class RewriteProposal(BaseModel):
     safety_notes: list[str] = Field(default_factory=list)
     needs_user_confirmation: bool = True
     status: ProposalStatus = ProposalStatus.PROPOSED
+    version: int = Field(default=1, ge=1)
+
+
+class EvidenceAssessment(BaseModel):
+    """Source-bound facts; uncertain assessments must not produce experience claims."""
+
+    outcome: Literal["supported", "insufficient", "no_experience", "skipped"] = "insufficient"
+    coverage: Literal["full", "partial", "none"] = "none"
+    evidence: str = ""
+    context: str = ""
+    action: str = ""
+    result: str = ""
+    followup: str = "请补充具体场景和你实际完成的工作；没有做过也可以直接说明。"
 
 
 class ReviewItem(BaseModel):
     requirement: str
+    requirement_id: str = ""
+    category: str = "skill"
     disposition: ReviewDisposition
     write_policy: WritePolicy = WritePolicy.ASK_FOR_FACTS
     reason: str
@@ -121,7 +143,9 @@ class AgentMessage(BaseModel):
 class QuestionAnswer(BaseModel):
     question_id: str
     requirement: str | None = None
+    requirement_id: str | None = None
     answer: str
+    answer_type: Literal["details", "no_experience", "unsure", "skip"] = "details"
 
 
 class ResumeAgentSessionCreate(BaseModel):
@@ -138,6 +162,7 @@ class ResumeAgentDecisionCreate(BaseModel):
     proposal_id: str
     decision: ProposalStatus
     note: str = ""
+    version: int | None = Field(default=None, ge=1)
 
 
 class ResumeAgentSession(BaseModel):
@@ -147,6 +172,9 @@ class ResumeAgentSession(BaseModel):
     resume_text: str
     jd_text: str
     analysis: JobFitAnalysis
+    initial_analysis: JobFitAnalysis | None = None
+    assessments: dict[str, EvidenceAssessment] = Field(default_factory=dict)
+    proposal_history: list[RewriteProposal] = Field(default_factory=list)
     analysis_overview: AnalysisOverview = Field(default_factory=AnalysisOverview)
     review_items: list[ReviewItem] = Field(default_factory=list)
     pending_questions: list[ClarifyingQuestion] = Field(default_factory=list)

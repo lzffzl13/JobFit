@@ -29,7 +29,7 @@ _FAKE_JD_RESPONSE = {
 _FAKE_SUGGESTION_RESPONSE = {
     "summary": "匹配度较高，后端技术栈基本匹配。",
     "resume_rewrites": [
-        {"before": "做过Python项目", "after": "使用Python FastAPI开发高性能后端服务", "reason": "更具体"},
+        {"before": "Python", "after": "使用Python FastAPI开发高性能后端服务", "reason": "更具体"},
     ],
     "interview_questions": [
         {"question": "请介绍Redis缓存策略", "focus": "缓存设计", "difficulty": "medium"},

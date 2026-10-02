@@ -23,7 +23,9 @@ from app.services.matcher import calculate_match
 logger = logging.getLogger(__name__)
 
 
-async def analyze_job_fit(resume_text: str, jd_text: str) -> JobFitAnalysis:
+async def analyze_job_fit(
+    resume_text: str, jd_text: str, *, include_suggestions: bool = True
+) -> JobFitAnalysis:
     """Main entry: extract → match → suggest → build response."""
 
     client = get_llm_client()
@@ -53,8 +55,12 @@ async def analyze_job_fit(resume_text: str, jd_text: str) -> JobFitAnalysis:
     )
 
     # Step 3: LLM suggestions
-    logger.info("Step 3: Generating suggestions...")
-    suggestions = await generate_suggestions(match_result, resume_profile, jd_profile, client)
+    suggestions = {}
+    if include_suggestions:
+        logger.info("Step 3: Generating suggestions...")
+        suggestions = await generate_suggestions(
+            match_result, resume_profile, jd_profile, client, resume_text=resume_text
+        )
 
     # Build final response
     return JobFitAnalysis(
@@ -80,6 +86,7 @@ async def analyze_job_fit(resume_text: str, jd_text: str) -> JobFitAnalysis:
                 before=r.get("before", ""),
                 after=r.get("after", ""),
                 reason=r.get("reason", ""),
+                evidence_basis=r.get("evidence_basis", ""),
             )
             for r in suggestions.get("resume_rewrites", [])
         ],

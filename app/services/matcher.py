@@ -435,6 +435,11 @@ def calculate_match(resume: ResumeProfile, jd: JDProfile) -> MatchResult:
         detail.level = level
         match_details.append(detail)
 
+    return summarize_matches(match_details)
+
+
+def summarize_matches(match_details: list[MatchDetail]) -> MatchResult:
+    """Build consistent scores, gaps and risks from the same requirement evidence."""
     # Build score breakdown
     breakdown = _calculate_breakdown(match_details)
 
@@ -510,7 +515,9 @@ def _calculate_breakdown(details: list[MatchDetail]) -> ScoreBreakdown:
         + edu_score * CATEGORY_WEIGHTS["education"]
         + soft_score * CATEGORY_WEIGHTS["soft"]
     )
-    cat_total_weight = sum(CATEGORY_WEIGHTS.values())
+    cat_total_weight = sum(
+        weight for category, weight in CATEGORY_WEIGHTS.items() if category_scores[category]
+    )
     total = round(cat_weighted_sum / cat_total_weight) if cat_total_weight > 0 else 0
 
     return ScoreBreakdown(
@@ -567,6 +574,7 @@ def _build_requirement_analysis(detail: MatchDetail) -> RequirementAnalysis:
     """Convert a raw match detail into a richer requirement analysis item."""
     return RequirementAnalysis(
         requirement=detail.requirement,
+        requirement_id=detail.requirement_id,
         category=detail.category,
         level=detail.level,
         matched=detail.matched,
